@@ -60,3 +60,16 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# Gradle
+.gradle
+build/
+!gradle-wrapper.jar
+*.log
+
+# Kotlin
+*.class
+*.kotlin_module
+
+# Local configuration
+local.properties
