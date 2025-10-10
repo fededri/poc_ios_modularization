@@ -7,6 +7,6 @@
 
 import Foundation
 
-public protocol OrdersRepositoryProtocol: Sendable {
+public protocol AssetsListRepositoryProtocol: Sendable {
     func getAllAssets() -> AsyncStream<[AssetModel]>
 }
