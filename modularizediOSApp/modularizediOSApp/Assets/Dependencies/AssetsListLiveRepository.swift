@@ -52,6 +52,16 @@ public struct AssetListLiveRepository: AssetsListRepositoryProtocol, @unchecked 
 }
 
 // MARK: - Dependency Override
+extension Assets.AssetsListRepository: DependencyKey {
+    public static var liveValue: Assets.AssetsListRepository {
+        return Self(
+            getAllAssets: {
+                let repository = AssetListLiveRepository()
+                return repository.getAllAssets()
+            }
+        )
+    }
+}
 
 public extension AssetsListRepository {
     /// Live implementation using the shared KMP repository
@@ -60,13 +70,6 @@ public extension AssetsListRepository {
         
         return AssetsListRepository(
             getAllAssets: repository.getAllAssets
-        )
-    }
-    
-    /// Test implementation
-    static func test() -> AssetsListRepository {
-        return AssetsListRepository(
-            getAllAssets: unimplemented("getAllAssets")
         )
     }
 }

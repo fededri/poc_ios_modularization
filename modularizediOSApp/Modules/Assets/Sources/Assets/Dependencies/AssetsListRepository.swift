@@ -15,12 +15,20 @@ public struct AssetsListRepository: Sendable {
     }
 }
 
-extension AssetsListRepository: DependencyKey {
-    public static let liveValue = AssetsListRepository(
-        getAllAssets: {
-            fatalError("AssetsListRepository.getAllAssets - Override this dependency in your app")
-        }
-    )
+extension AssetsListRepository: TestDependencyKey {
+    public static var testValue: AssetsListRepository {
+        return Self(
+            getAllAssets: {
+                return AsyncStream { continuation in
+                    continuation.yield([
+                        AssetUIModel(id: "TEST", status: "TEST", category: AssetCategoryType(id: "1", name: "category 1")),
+                        AssetUIModel(id: "2", status: "inactive", category: AssetCategoryType(id: "2", name: "category 2"))
+                    ])
+                    continuation.finish()
+                }
+            }
+        )
+    }
 }
 
 public extension DependencyValues {

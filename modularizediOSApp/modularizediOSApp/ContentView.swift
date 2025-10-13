@@ -1,11 +1,15 @@
+import Assets
 import SwiftUI
 import shared
 
 struct ContentView: View {
-	let greet = Greeting().greet()
+    // TODO: implement the navigator
+    private let assetsProvider = Assets.AssetsListProvider()
 
 	var body: some View {
-		Text(greet)
+        NavigationView {
+            assetsProvider.make()
+        }
 	}
 }
 

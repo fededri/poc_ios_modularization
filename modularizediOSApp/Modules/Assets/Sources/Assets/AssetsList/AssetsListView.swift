@@ -118,16 +118,3 @@ struct AssetRowView: View {
     )
 }
 
-// MARK: - Public Factory
-
-public extension AssetsListView {
-    /// Creates a new AssetsListView with default configuration
-    static func make() -> some View {
-        AssetsListView(
-            store: Store(initialState: AssetsListFeature.State()) {
-                AssetsListFeature()
-            }
-        )
-    }
-}
-
