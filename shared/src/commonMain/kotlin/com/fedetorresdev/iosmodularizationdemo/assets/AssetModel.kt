@@ -7,6 +7,18 @@ data class AssetModel(
     val category: AssetCategoryModel,
 )
 
+data class AssetDetailModel(
+    val id: String,
+    val name: String,
+    val status: String,
+    val category: AssetCategoryModel,
+    val description: String,
+    val location: String,
+    val purchaseDate: String,
+    val value: String,
+    val manufacturer: String,
+    val serialNumber: String,
+)
 
 data class AssetCategoryModel(
     val id: String,

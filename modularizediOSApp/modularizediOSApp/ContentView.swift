@@ -7,7 +7,7 @@ struct ContentView: View {
     private let assetsProvider = Assets.AssetsListProvider()
 
 	var body: some View {
-        NavigationView {
+        NavigationStack {
             assetsProvider.make()
         }
 	}

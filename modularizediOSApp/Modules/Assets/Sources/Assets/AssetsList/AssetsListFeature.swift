@@ -18,15 +18,18 @@ struct AssetsListFeature {
         var assets: [AssetUIModel] = []
         var isLoading: Bool = false
         var errorMessage: String?
+        @Presents var destination: Destination.State?
         
         init(
             assets: [AssetUIModel] = [],
             isLoading: Bool = false,
-            errorMessage: String? = nil
+            errorMessage: String? = nil,
+            destination: Destination.State? = nil
         ) {
             self.assets = assets
             self.isLoading = isLoading
             self.errorMessage = errorMessage
+            self.destination = destination
         }
     }
     
@@ -34,6 +37,13 @@ struct AssetsListFeature {
         case onAppear
         case assetsResponse([AssetUIModel])
         case errorOccurred(String)
+        case assetTapped(id: String)
+        case destination(PresentationAction<Destination.Action>)
+    }
+    
+    @Reducer(state: .equatable)
+    enum Destination {
+        case assetDetail(AssetDetailFeature)
     }
         
     init() {}
@@ -60,8 +70,16 @@ struct AssetsListFeature {
                 state.isLoading = false
                 state.errorMessage = message
                 return .none
+                
+            case let .assetTapped(id):
+                state.destination = .assetDetail(AssetDetailFeature.State(assetId: id))
+                return .none
+                
+            case .destination:
+                return .none
             }
         }
+        .ifLet(\.$destination, action: \.destination)
     }
 }
 
