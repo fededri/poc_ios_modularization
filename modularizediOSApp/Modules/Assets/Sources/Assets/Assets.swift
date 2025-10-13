@@ -1,2 +1,9 @@
-// The Swift Programming Language
-// https://docs.swift.org/swift-book
+//
+//  Assets.swift
+//  Assets
+//
+//  Created by Federico Torres on 11/10/25.
+//
+
+// Main module file for Assets package
+// All public types are automatically exported by Swift Package Manager

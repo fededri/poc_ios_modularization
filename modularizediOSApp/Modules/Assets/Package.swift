@@ -13,14 +13,22 @@ let package = Package(
             targets: ["Assets"]),
     ],
     dependencies: [
-        .package(path: "../CoreInterfaces")
+        .package(path: "../CoreInterfaces"),
+        .package(url: "https://github.com/pointfreeco/swift-composable-architecture", .upToNextMajor(from: "1.22.1"))
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "Assets",
-            dependencies: ["CoreInterfaces"]),
+            dependencies: [
+                "CoreInterfaces",
+                .product(
+                    name: "ComposableArchitecture",
+                    package: "swift-composable-architecture"
+                ),
+            ]
+        ),
         .testTarget(
             name: "AssetsTests",
             dependencies: ["Assets"]

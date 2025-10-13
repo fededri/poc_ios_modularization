@@ -8,5 +8,5 @@
 import Foundation
 
 public protocol AssetsListRepositoryProtocol: Sendable {
-    func getAllAssets() -> AsyncStream<[AssetModel]>
+    func getAllAssets() -> AsyncStream<[AssetUIModel]>
 }

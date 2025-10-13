@@ -7,21 +7,19 @@
 
 import Foundation
 
-public struct AssetModel: Identifiable {
+public struct AssetUIModel: Identifiable, Equatable, Sendable {
     public let id: String
-    public let registrationDate: Date
     public let status: String
     public let category: AssetCategoryType
     
-    public init(id: String, registrationDate: Date, status: String, category: AssetCategoryType) {
+    public init(id: String,status: String, category: AssetCategoryType) {
         self.id = id
-        self.registrationDate = registrationDate
         self.status = status
         self.category = category
     }
 }
 
-public struct AssetCategoryType {
+public struct AssetCategoryType: Equatable, Sendable {
     public let id: String
     public let name: String
     
