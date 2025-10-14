@@ -9,7 +9,6 @@ A proof-of-concept demonstrating how to modularize an iOS application that uses 
 - [Architecture](#architecture)
 - [The Navigation Pattern Problem](#the-navigation-pattern-problem)
 - [Pros and Cons](#pros-and-cons)
-- [Key Learnings](#key-learnings)
 - [Code Examples](#code-examples)
 
 ## Overview
@@ -326,30 +325,6 @@ Back button works correctly!
    - Team must learn multiple patterns: TCA + Coordinator + Dependency Injection
    - Understanding when to use path-based vs optional-based navigation
    - Requires knowledge of both Swift and Kotlin ecosystems  
-
-## Key Learnings
-
-### KMP Integration Rules
-
-1. **Only App target links KMP framework**
-2. **Modules define repository protocols**, App target provides KMP implementations
-3. **Use TCA's dependency system** for injection
-4. **Map KMP models to UIModels** in App target's live repositories
-
-### Navigation Rules
-
-1. **Cross-module capable screens** must be in coordinator path
-2. **Internal-only screens** can use `@Presents`
-3. **Cannot mix `@Presents` with cross-module navigation** (creates disconnected stacks) - see [The Navigation Pattern Problem](#the-navigation-pattern-problem) for detailed explanation
-4. **Coordinator intercepts actions** to manage navigation
-5. **Single NavigationStack path** ensures proper back button behavior across all modules
-
-### Architecture Decisions
-
-- **Removed Navigator protocol** (callbacks) in favor of TCA action observation
-- **Protocol-based repository abstractions** in modules
-- **Direct state mutation** in coordinator for cross-feature updates
-- **`@retroactive` conformance** for `DependencyKey` in App target
 
 ## Code Examples
 
