@@ -27,11 +27,11 @@ public protocol Navigator: Equatable, Sendable {
 }
 
 private struct NavigatorKey: EnvironmentKey {
-    static let defaultValue: any Navigator = FakeNavigator()
+    static let defaultValue: (any Navigator)? = nil
 }
 
 public extension EnvironmentValues {
-    var navigator: any Navigator {
+    var navigator: (any Navigator)? {
         get { self[NavigatorKey.self] }
         set { self[NavigatorKey.self] = newValue }
     }

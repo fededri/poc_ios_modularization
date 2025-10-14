@@ -10,6 +10,7 @@ import CoreInterfaces
 import SwiftUI
 
 struct AssetDetailView: View {
+    @Environment(\.navigator) var navigator: (any Navigator)?
     @Bindable var store: StoreOf<AssetDetailFeature>
     
     init(store: StoreOf<AssetDetailFeature>) {
@@ -75,6 +76,19 @@ struct AssetDetailView: View {
                             DetailRow(label: "Manufacturer", value: asset.manufacturer)
                             DetailRow(label: "Serial Number", value: asset.serialNumber)
                         }
+                        
+                        // Linked Issue Section
+                        if let linkedIssue = store.linkedIssue {
+                            Divider()
+                            
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Linked Issue")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                
+                                LinkedIssueCard(issue: linkedIssue)
+                            }
+                        }
                     }
                     .padding()
                 }
@@ -94,8 +108,33 @@ struct AssetDetailView: View {
         }
         .navigationTitle("Asset Details")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    guard let navigator = navigator else { return }
+                    navigator.navigate(to: .issuesListPicker) { result in
+                        if let issue = result as? IssueUIModel {
+                            //store.send(.issueSelected(issue))
+                        }
+                    }
+                } label: {
+                    Label("Link Issue", systemImage: "link.badge.plus")
+                }
+            }
+        }
+        .navigationDestination(for: NavigationDestination.self) { destination in
+            destinationView(for: destination)
+        }
         .onAppear {
             store.send(.onAppear)
+        }
+    }
+    
+    @ViewBuilder
+    private func destinationView(for destination: NavigationDestination) -> some View {
+        navigator?.viewForDestination(destination) { result in
+//            store.send(.navigationResult(result))
+//            navigationPath.removeLast()
         }
     }
 }
@@ -116,6 +155,50 @@ struct DetailRow: View {
                 .font(.subheadline)
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+// TODO: move to SharedUI
+struct LinkedIssueCard: View {
+    let issue: IssueUIModel
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "link.circle.fill")
+                    .foregroundColor(.blue)
+                Text(issue.title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            
+            Text(issue.description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+            
+            HStack(spacing: 8) {
+                Image(systemName: "tag.fill")
+                    .font(.caption2)
+                    .foregroundColor(statusColor(for: issue.status))
+                Text(issue.status)
+                    .font(.caption)
+                    .foregroundColor(statusColor(for: issue.status))
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+    
+    private func statusColor(for status: String) -> Color {
+        switch status.lowercased() {
+        case "open": return .blue
+        case "in progress": return .orange
+        case "closed": return .green
+        default: return .gray
         }
     }
 }

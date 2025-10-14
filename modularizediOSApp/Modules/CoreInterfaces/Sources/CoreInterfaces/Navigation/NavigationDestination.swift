@@ -8,7 +8,8 @@
 import Foundation
 
 
-public enum NavigationDestination {
+public enum NavigationDestination: Sendable {
     case assetsList
     case issuesList
+    case issuesListPicker
 }

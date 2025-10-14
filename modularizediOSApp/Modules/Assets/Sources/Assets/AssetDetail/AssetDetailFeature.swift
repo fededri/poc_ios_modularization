@@ -19,17 +19,20 @@ struct AssetDetailFeature {
         var assetDetail: AssetDetailUIModel?
         var isLoading: Bool = false
         var errorMessage: String?
+        var linkedIssue: IssueUIModel?
         
         init(
             assetId: String,
             assetDetail: AssetDetailUIModel? = nil,
             isLoading: Bool = false,
-            errorMessage: String? = nil
+            errorMessage: String? = nil,
+            linkedIssue: IssueUIModel? = nil
         ) {
             self.assetId = assetId
             self.assetDetail = assetDetail
             self.isLoading = isLoading
             self.errorMessage = errorMessage
+            self.linkedIssue = linkedIssue
         }
     }
     
@@ -37,6 +40,8 @@ struct AssetDetailFeature {
         case onAppear
         case assetDetailResponse(AssetDetailUIModel?)
         case errorOccurred(String)
+        case linkIssueTapped
+        case issueSelected(IssueUIModel)
     }
     
     init() {}
@@ -66,6 +71,15 @@ struct AssetDetailFeature {
             case let .errorOccurred(message):
                 state.isLoading = false
                 state.errorMessage = message
+                return .none
+                
+            case .linkIssueTapped:
+                // Navigation will be handled by the view using Navigator
+                return .none
+                
+            case let .issueSelected(issue):
+                // Store the selected issue directly
+                state.linkedIssue = issue
                 return .none
             }
         }

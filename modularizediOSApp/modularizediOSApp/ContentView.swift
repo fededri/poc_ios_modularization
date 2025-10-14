@@ -1,14 +1,28 @@
 import Assets
+import CoreInterfaces
+import ComposableArchitecture
 import SwiftUI
 import shared
 
 struct ContentView: View {
-    // TODO: implement the navigator
+    @State private var navigationPath = NavigationPath()
+    @State private var navigator: (any Navigator)? = nil  // Starts as nil, set in onAppear
     private let assetsProvider = Assets.AssetsListProvider()
-
+    
 	var body: some View {
-        NavigationStack {
-            assetsProvider.make()
+        NavigationStack(path: $navigationPath) {
+            NavigationLink("Start") {
+                assetsProvider.make()
+            }
+        }
+        .environment(\.navigator, navigator)
+        .onAppear {
+            if navigator == nil {
+                navigator = PathNavigator(
+                    navigationPath: $navigationPath, 
+                    viewFactory: AppNavigationViewFactory()
+                )
+            }
         }
 	}
 }
