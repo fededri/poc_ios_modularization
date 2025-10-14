@@ -7,9 +7,7 @@
 
 import Foundation
 
-public struct IssueUIModel: Identifiable, Equatable, Sendable, NavigationResult {
-    public static let resultType: String = "IssueUIModel"
-    
+public struct IssueUIModel: Identifiable, Equatable, Sendable {
     public let id: String
     public let title: String
     public let description: String
