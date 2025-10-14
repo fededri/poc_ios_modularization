@@ -312,8 +312,6 @@ NavigationStack(path: coordinatorPath)
 Back button works correctly!
 ```
 
-## Problems & Solutions
-
 ### Problem 1: SPM Cannot Depend on KMP Framework
 
 **Problem:** Swift Package Manager modules cannot link KMP .framework files directly.
@@ -375,24 +373,57 @@ Back button works correctly!
 
 ### Pros
 
-✅ **Clear module boundaries** enforced by compiler  
-✅ **Modules testable in isolation** without KMP framework  
-✅ **SwiftUI Previews work** in all modules  
-✅ **Full TCA composition** and observability maintained  
-✅ **Testable navigation logic** centralized in coordinator  
-✅ **Scalable architecture**: coordinator handles cross-module, `@Presents` handles internal  
-✅ **Type-safe communication** via TCA actions  
-✅ **Parallel development**: teams can work on modules independently  
-✅ **Faster incremental builds**: unchanged modules not recompiled  
+1. **Development Speed**
+   - Faster build times due to incremental builds and parallel compilation
+   - Reduced cognitive load: focus on one module at a time
+   - Less merge conflicts
+   - Easier unit testing
+   - Faster test execution: we can test individual modules in isolation
+   - SwiftUI Previews
+   - Easier to setup demo apps per module
+
+2. **Clear Code Ownership**
+   - Teams can own and maintain specific modules
+   - Clear boundaries make it easier to assign responsibilities
+   - Reduces cross-team dependencies and coordination overhead
+
+3. **Scalability**
+   - Architecture grows with the app without becoming unwieldy
+   - New features can be added as new modules
+   - Coordinator stays lean with hybrid navigation approach
+   - Module boundaries enforced by compiler
+
+4. **CI/CD Benefits**
+   - Cached module builds: only rebuild changed modules
+   - Parallel CI jobs can build and test modules simultaneously
+   - Faster feedback loops in CI pipeline
+   - Reduced CI costs and build times  
 
 ### Cons
 
-❌ **More upfront complexity** in architecture setup  
-❌ **Coordinator coupling**: knows about screens from multiple modules  
-❌ **App target must implement** all repository bridges to KMP  
-❌ **Deep `@Presents` nesting** cannot navigate cross-module  
-❌ **Learning curve**: TCA + Coordinator + Dependency Injection  
-❌ **Initial setup overhead** for new modules  
+1. **Initial Setup Complexity**
+   - Setting up modules takes time and requires careful planning
+   - More upfront architecture decisions needed
+   - Initial setup overhead for each new module
+   - Team needs to agree on module boundaries and responsibilities
+
+2. **Navigation Complexity**
+   - Navigation becomes more complex with coordinator pattern
+   - Must decide which screens go in path vs @Presents
+   - Coordinator coupling: knows about screens from multiple modules
+   - Deep `@Presents` nesting cannot navigate cross-module in push / drilldown way
+   - Requires understanding of TCA navigation patterns
+
+3. **KMP Abstraction Layer**
+   - Need to write code that abstracts the Kotlin layer
+   - App target must implement all repository bridges to KMP
+   - Manual mapping between KMP models and Swift UIModels
+   - Additional boilerplate for dependency injection
+
+4. **Learning Curve**
+   - Team must learn multiple patterns: TCA + Coordinator + Dependency Injection
+   - Understanding when to use path-based vs optional-based navigation
+   - Requires knowledge of both Swift and Kotlin ecosystems  
 
 ## Key Learnings
 
@@ -418,75 +449,6 @@ Back button works correctly!
 - **Direct state mutation** in coordinator for cross-feature updates
 - **`@retroactive` conformance** for `DependencyKey` in App target
 
-## Project Structure
-
-```
-├── modularizediOSApp/              # App target (ONLY one with KMP)
-│   ├── AppCoordinator.swift        # Navigation coordinator
-│   ├── ContentView.swift           # Root view
-│   ├── iOSApp.swift               # App entry point
-│   ├── Assets/Dependencies/        # Live KMP repositories for Assets
-│   │   ├── AssetsListLiveRepository.swift
-│   │   └── AssetDetailLiveRepository.swift
-│   └── Issues/Dependencies/        # Live KMP repositories for Issues
-│       ├── IssuesListLiveRepository.swift
-│       └── IssueDetailLiveRepository.swift
-├── Modules/                        # Swift Package modules (NO KMP)
-│   ├── Assets/                     # Assets feature module
-│   │   ├── Package.swift
-│   │   ├── Sources/Assets/
-│   │   │   ├── AssetsList/
-│   │   │   │   ├── AssetsListFeature.swift
-│   │   │   │   └── AssetsListView.swift
-│   │   │   ├── AssetDetail/
-│   │   │   │   ├── AssetDetailFeature.swift
-│   │   │   │   └── AssetDetailView.swift
-│   │   │   ├── AssetFilters/
-│   │   │   │   ├── AssetFiltersFeature.swift
-│   │   │   │   └── AssetFiltersView.swift
-│   │   │   └── Dependencies/       # Protocol definitions
-│   │   │       ├── AssetsListRepository.swift
-│   │   │       └── AssetDetailRepository.swift
-│   │   └── Tests/
-│   │       └── AssetsTests/
-│   ├── Issues/                     # Issues feature module
-│   │   ├── Package.swift
-│   │   ├── Sources/Issues/
-│   │   │   ├── IssuesListPicker/
-│   │   │   │   ├── IssuesListPickerFeature.swift
-│   │   │   │   └── IssuesListPickerView.swift
-│   │   │   ├── IssueDetail/
-│   │   │   │   ├── IssueDetailFeature.swift
-│   │   │   │   └── IssueDetailView.swift
-│   │   │   └── Dependencies/       # Protocol definitions
-│   │   │       ├── IssuesListRepository.swift
-│   │   │       └── IssueDetailRepository.swift
-│   │   └── Tests/
-│   │       └── IssuesTests/
-│   └── CoreInterfaces/             # Shared interfaces
-│       ├── Package.swift
-│       └── Sources/CoreInterfaces/
-│           ├── Assets/             # Asset models
-│           │   ├── AssetUIModel.swift
-│           │   └── AssetDetailUIModel.swift
-│           ├── Issues/             # Issue models
-│           │   ├── IssueUIModel.swift
-│           │   └── IssueDetailUIModel.swift
-│           └── Navigation/         # Navigation types
-│               └── NavigationDestination.swift
-├── shared/                         # Kotlin Multiplatform
-│   ├── build.gradle.kts
-│   └── src/
-│       ├── commonMain/kotlin/
-│       │   └── com/fedetorresdev/
-│       ├── iosMain/kotlin/
-│       └── androidMain/kotlin/
-├── androidApp/                     # Android app (optional)
-├── build.gradle.kts
-├── settings.gradle.kts
-└── README.md
-```
-
 ## Code Examples
 
 ### Module Defines Protocol
@@ -503,12 +465,6 @@ public struct AssetsListRepository {
     
     public init(getAllAssets: @escaping @Sendable () async -> [AssetUIModel]) {
         self.getAllAssets = getAllAssets
-    }
-}
-
-extension AssetsListRepository: DependencyKey {
-    public static var liveValue: AssetsListRepository {
-        fatalError("AssetsListRepository has no live implementation. Override in the app target.")
     }
 }
 
@@ -670,97 +626,3 @@ public struct AssetsListFeature: Sendable {
     }
 }
 ```
-
-## Getting Started
-
-### Prerequisites
-
-- **Xcode 15+**
-- **Swift 5.9+**
-- **Kotlin 1.9+**
-- **Gradle 8.0+**
-
-### Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd poc_ios_modularization
-   ```
-
-2. **Open the workspace**
-   ```bash
-   open modularizediOSApp/ModularizediOSApp.xcworkspace
-   ```
-
-3. **Build the project**
-   - The KMP framework will be built automatically via Gradle
-   - Press `Cmd + B` to build
-
-4. **Run on simulator**
-   - Select a simulator target
-   - Press `Cmd + R` to run
-
-5. **Run tests**
-   - Press `Cmd + U` to run all tests
-
-### Project Configuration
-
-The project uses an Xcode workspace that includes:
-- The main iOS app target
-- Swift Package modules (Assets, Issues, CoreInterfaces)
-- KMP framework built via Gradle
-
-## Technologies Used
-
-- **[SwiftUI](https://developer.apple.com/xcode/swiftui/)**: Declarative UI framework
-- **[The Composable Architecture (TCA)](https://github.com/pointfreeco/swift-composable-architecture)**: State management and composition
-- **[Kotlin Multiplatform (KMP)](https://kotlinlang.org/docs/multiplatform.html)**: Shared business logic
-- **[Swift Package Manager](https://swift.org/package-manager/)**: Module dependency management
-- **[Xcode Workspace](https://developer.apple.com/documentation/xcode/creating-an-xcode-workspace)**: Project organization
-
-## Future Improvements
-
-### Scalability
-- Add more modules to demonstrate scalability (Users, Documents, Settings)
-- Benchmark build times: modular vs monolithic
-- Module dependency graph visualization
-
-### Navigation
-- Implement deep linking through coordinator
-- URL-based navigation for universal links
-- State restoration for background/foreground transitions
-
-### Features
-- Add module-level feature flags via TCA dependencies
-- Demonstrate A/B testing across modules
-- Analytics integration in coordinator
-
-### Testing & CI/CD
-- Performance metrics for modular vs monolithic builds
-- CI/CD pipeline for module testing
-- Snapshot testing for UI components
-- Integration tests across modules
-
-### KMP Integration
-- Demonstrate shared KMP ViewModels (if desired)
-- Explore SKIE for better Swift/Kotlin interop
-- Share more business logic (validation, formatting, etc.)
-
-## Contributing
-
-This is a proof-of-concept project. Feel free to explore, experiment, and adapt the patterns to your own projects.
-
-## License
-
-[Your License Here]
-
-## Acknowledgments
-
-- [The Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture) by Point-Free
-- [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html) by JetBrains
-- iOS modularization community for sharing patterns and practices
-
----
-
-**Questions or feedback?** Open an issue or start a discussion!
