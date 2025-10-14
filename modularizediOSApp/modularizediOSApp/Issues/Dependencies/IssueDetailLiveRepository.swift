@@ -59,7 +59,7 @@ public struct IssueDetailLiveRepository: IssueDetailRepositoryProtocol, @uncheck
 }
 
 // MARK: - Dependency Override
-extension Issues.IssueDetailRepository: DependencyKey {
+extension Issues.IssueDetailRepository: @retroactive DependencyKey {
     public static var liveValue: Issues.IssueDetailRepository {
         return Self(
             getIssueDetail: { id in

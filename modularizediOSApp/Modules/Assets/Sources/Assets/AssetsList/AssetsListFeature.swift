@@ -18,15 +18,20 @@ public struct AssetsListFeature : Sendable {
         var assets: [AssetUIModel] = []
         var isLoading: Bool = false
         var errorMessage: String?
+        @Presents var destination: Destination.State?
+        var selectedStatuses: Set<String> = []
+        var selectedCategories: Set<String> = []
         
         public init(
             assets: [AssetUIModel] = [],
             isLoading: Bool = false,
-            errorMessage: String? = nil
+            errorMessage: String? = nil,
+            destination: Destination.State? = nil
         ) {
             self.assets = assets
             self.isLoading = isLoading
             self.errorMessage = errorMessage
+            self.destination = destination
         }
     }
     
@@ -35,6 +40,13 @@ public struct AssetsListFeature : Sendable {
         case assetsResponse([AssetUIModel])
         case errorOccurred(String)
         case assetTapped(id: String)
+        case filtersTapped
+        case destination(PresentationAction<Destination.Action>)
+    }
+    
+    @Reducer(state: .equatable)
+    public enum Destination {
+        case filters(AssetFiltersFeature)
     }
     
     public init() {}
@@ -65,8 +77,34 @@ public struct AssetsListFeature : Sendable {
             case .assetTapped:
                 // Coordinator will handle navigation
                 return .none
+                
+            case .filtersTapped:
+                // Show filters sheet - pure internal navigation!
+                state.destination = .filters(AssetFiltersFeature.State(
+                    selectedStatuses: state.selectedStatuses,
+                    selectedCategories: state.selectedCategories
+                ))
+                return .none
+                
+            case .destination(.presented(.filters(.applyFilters))):
+                // Save the filters and dismiss
+                if case let .filters(filtersState) = state.destination {
+                    state.selectedStatuses = filtersState.selectedStatuses
+                    state.selectedCategories = filtersState.selectedCategories
+                }
+                state.destination = nil
+                // In real app: filter the assets list here based on selectedStatuses/Categories
+                return .none
+                
+            case .destination(.presented(.filters(.dismiss))):
+                state.destination = nil
+                return .none
+                
+            case .destination:
+                return .none
             }
         }
+        .ifLet(\.$destination, action: \.destination)
     }
 }
 

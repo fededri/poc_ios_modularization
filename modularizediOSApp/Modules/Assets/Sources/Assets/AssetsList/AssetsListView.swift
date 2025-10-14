@@ -57,6 +57,20 @@ public struct AssetsListView: View {
             }
         }
         .navigationTitle("Assets")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    store.send(.filtersTapped)
+                } label: {
+                    Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                }
+            }
+        }
+        .sheet(
+            item: $store.scope(state: \.destination?.filters, action: \.destination.filters)
+        ) { store in
+            AssetFiltersView(store: store)
+        }
         .onAppear {
             store.send(.onAppear)
         }
