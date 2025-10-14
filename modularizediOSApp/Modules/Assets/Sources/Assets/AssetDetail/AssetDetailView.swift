@@ -9,15 +9,14 @@ import ComposableArchitecture
 import CoreInterfaces
 import SwiftUI
 
-struct AssetDetailView: View {
-    @Environment(\.navigationViewFactory) var navigationViewFactory
+public struct AssetDetailView: View {
     @Bindable var store: StoreOf<AssetDetailFeature>
     
-    init(store: StoreOf<AssetDetailFeature>) {
+    public init(store: StoreOf<AssetDetailFeature>) {
         self.store = store
     }
     
-    var body: some View {
+    public var body: some View {
         Group {
             if store.isLoading {
                 ProgressView("Loading asset details...")
@@ -114,18 +113,6 @@ struct AssetDetailView: View {
                     store.send(.linkIssueTapped)
                 } label: {
                     Label("Link Issue", systemImage: "link.badge.plus")
-                }
-            }
-        }
-        .sheet(isPresented: Binding(
-            get: { store.showIssuesListPicker },
-            set: { if !$0 { store.send(.dismissIssuesPicker) } }
-        )) {
-            if let navigationViewFactory = navigationViewFactory {
-                navigationViewFactory.createView(for: .issuesListPicker) { result in
-                    if let issueResult = result as? IssueUIModel {
-                        store.send(.issueSelected(issueResult))
-                    }
                 }
             }
         }

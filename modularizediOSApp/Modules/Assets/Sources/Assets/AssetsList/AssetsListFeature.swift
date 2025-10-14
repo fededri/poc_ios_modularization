@@ -10,43 +10,34 @@ import CoreInterfaces
 import Foundation
 
 @Reducer
-struct AssetsListFeature {
+public struct AssetsListFeature : Sendable {
     @Dependency(\.assetsListRepository) var assetsListRepository
     
     @ObservableState
-    struct State: Equatable {
+    public struct State: Equatable {
         var assets: [AssetUIModel] = []
         var isLoading: Bool = false
         var errorMessage: String?
-        @Presents var destination: Destination.State?
         
-        init(
+        public init(
             assets: [AssetUIModel] = [],
             isLoading: Bool = false,
-            errorMessage: String? = nil,
-            destination: Destination.State? = nil
+            errorMessage: String? = nil
         ) {
             self.assets = assets
             self.isLoading = isLoading
             self.errorMessage = errorMessage
-            self.destination = destination
         }
     }
     
-    enum Action {
+    public enum Action {
         case onAppear
         case assetsResponse([AssetUIModel])
         case errorOccurred(String)
         case assetTapped(id: String)
-        case destination(PresentationAction<Destination.Action>)
     }
     
-    @Reducer(state: .equatable)
-    enum Destination {
-        case assetDetail(AssetDetailFeature)
-    }
-        
-    init() {}
+    public init() {}
     
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -71,16 +62,11 @@ struct AssetsListFeature {
                 state.errorMessage = message
                 return .none
                 
-            case let .assetTapped(id):
-                state.destination = .assetDetail(AssetDetailFeature.State(assetId: id))
-                return .none
-                
-            case .destination:
-                // AssetDetail now handles its own cross-module navigation via modals
+            case .assetTapped:
+                // Coordinator will handle navigation
                 return .none
             }
         }
-        .ifLet(\.$destination, action: \.destination)
     }
 }
 

@@ -10,17 +10,17 @@ import CoreInterfaces
 import Foundation
 
 @Reducer
-struct IssueDetailFeature {
+public struct IssueDetailFeature: Sendable {
     @Dependency(\.issueDetailRepository) var issueDetailRepository
     
     @ObservableState
-    struct State: Equatable {
+    public struct State: Equatable {
         let issueId: String
         var issueDetail: IssueDetailUIModel?
         var isLoading: Bool = false
         var errorMessage: String?
         
-        init(
+        public init(
             issueId: String,
             issueDetail: IssueDetailUIModel? = nil,
             isLoading: Bool = false,
@@ -33,13 +33,13 @@ struct IssueDetailFeature {
         }
     }
     
-    enum Action {
+    public enum Action {
         case onAppear
         case issueDetailResponse(IssueDetailUIModel?)
         case errorOccurred(String)
     }
     
-    init() {}
+    public init() {}
     
     public var body: some ReducerOf<Self> {
         Reduce { state, action in

@@ -9,14 +9,14 @@ import ComposableArchitecture
 import CoreInterfaces
 import SwiftUI
 
-struct IssueDetailView: View {
+public struct IssueDetailView: View {
     @Bindable var store: StoreOf<IssueDetailFeature>
     
-    init(store: StoreOf<IssueDetailFeature>) {
+    public init(store: StoreOf<IssueDetailFeature>) {
         self.store = store
     }
     
-    var body: some View {
+    public var body: some View {
         Group {
             if store.isLoading {
                 ProgressView("Loading issue details...")

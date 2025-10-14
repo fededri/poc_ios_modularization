@@ -10,18 +10,18 @@ import CoreInterfaces
 import Foundation
 
 @Reducer
-struct IssuesListPickerFeature {
+public struct IssuesListPickerFeature: Sendable {
     @Dependency(\.issuesListRepository) var issuesListRepository
     @Dependency(\.dismiss) var dismiss
     
     @ObservableState
-    struct State: Equatable {
+    public struct State: Equatable {
         var issues: [IssueUIModel] = []
         var isLoading: Bool = false
         var errorMessage: String?
         @Presents var destination: Destination.State?
         
-        init(
+        public init(
             issues: [IssueUIModel] = [],
             isLoading: Bool = false,
             errorMessage: String? = nil,
@@ -34,7 +34,7 @@ struct IssuesListPickerFeature {
         }
     }
     
-    enum Action {
+    public enum Action {
         case onAppear
         case issuesResponse([IssueUIModel])
         case errorOccurred(String)
@@ -45,11 +45,11 @@ struct IssuesListPickerFeature {
     }
     
     @Reducer(state: .equatable)
-    enum Destination {
+    public enum Destination {
         case issueDetail(IssueDetailFeature)
     }
     
-    init() {}
+    public init() {}
     
     public var body: some ReducerOf<Self> {
         Reduce { state, action in

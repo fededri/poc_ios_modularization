@@ -9,11 +9,11 @@ import ComposableArchitecture
 import CoreInterfaces
 import SwiftUI
 
-struct IssuesListPickerView: View {
+public struct IssuesListPickerView: View {
     @Bindable var store: StoreOf<IssuesListPickerFeature>
     let onIssueSelected: (IssueUIModel) -> Void
     
-    init(
+    public init(
         store: StoreOf<IssuesListPickerFeature>,
         onIssueSelected: @escaping (IssueUIModel) -> Void
     ) {
@@ -21,7 +21,7 @@ struct IssuesListPickerView: View {
         self.onIssueSelected = onIssueSelected
     }
     
-    var body: some View {
+    public var body: some View {
         Group {
             if store.isLoading && store.issues.isEmpty {
                 ProgressView("Loading issues...")
@@ -52,30 +52,20 @@ struct IssuesListPickerView: View {
                 .padding()
             } else {
                 List(store.issues) { issue in
-                    HStack(spacing: 0) {
-                        // Main row area - navigates to detail
+                    Button {
+                        onIssueSelected(issue)
+                        store.send(.issueSelected(issue))
+                    } label: {
+                        IssuePickerRowView(issue: issue)
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing) {
                         Button {
                             store.send(.issueTapped(id: issue.id))
                         } label: {
-                            IssuePickerRowView(issue: issue)
+                            Label("Details", systemImage: "info.circle")
                         }
-                        .buttonStyle(.plain)
-                        
-                        // Select button - picks the issue
-                        Button {
-                            onIssueSelected(issue)
-                            store.send(.issueSelected(issue))
-                        } label: {
-                            Text("Select")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color.blue)
-                                .cornerRadius(8)
-                        }
-                        .padding(.leading, 8)
+                        .tint(.blue)
                     }
                 }
             }

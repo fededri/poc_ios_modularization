@@ -10,45 +10,41 @@ import CoreInterfaces
 import Foundation
 
 @Reducer
-struct AssetDetailFeature {
+public struct AssetDetailFeature : Sendable {
     @Dependency(\.assetDetailRepository) var assetDetailRepository
     
     @ObservableState
-    struct State: Equatable {
+    public struct State: Equatable {
         let assetId: String
         var assetDetail: AssetDetailUIModel?
         var isLoading: Bool = false
         var errorMessage: String?
-        var linkedIssue: IssueUIModel?
-        var showIssuesListPicker: Bool = false
+        public var linkedIssue: IssueUIModel?
         
-        init(
+        public init(
             assetId: String,
             assetDetail: AssetDetailUIModel? = nil,
             isLoading: Bool = false,
             errorMessage: String? = nil,
-            linkedIssue: IssueUIModel? = nil,
-            showIssuesListPicker: Bool = false
+            linkedIssue: IssueUIModel? = nil
         ) {
             self.assetId = assetId
             self.assetDetail = assetDetail
             self.isLoading = isLoading
             self.errorMessage = errorMessage
             self.linkedIssue = linkedIssue
-            self.showIssuesListPicker = showIssuesListPicker
         }
     }
     
-    enum Action {
+    public enum Action {
         case onAppear
         case assetDetailResponse(AssetDetailUIModel?)
         case errorOccurred(String)
         case linkIssueTapped
         case issueSelected(IssueUIModel)
-        case dismissIssuesPicker
     }
     
-    init() {}
+    public init() {}
     
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -78,18 +74,12 @@ struct AssetDetailFeature {
                 return .none
                 
             case .linkIssueTapped:
-                // Show the issues picker modal
-                state.showIssuesListPicker = true
+                // Coordinator will handle navigation
                 return .none
                 
             case let .issueSelected(issue):
-                // Store the selected issue and dismiss the modal
+                // Store the selected issue (coordinator handles navigation back)
                 state.linkedIssue = issue
-                state.showIssuesListPicker = false
-                return .none
-                
-            case .dismissIssuesPicker:
-                state.showIssuesListPicker = false
                 return .none
             }
         }

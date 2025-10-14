@@ -12,58 +12,51 @@ import SwiftUI
 public struct AssetsListView: View {
     @Bindable var store: StoreOf<AssetsListFeature>
     
-    init(store: StoreOf<AssetsListFeature>) {
+    public init(store: StoreOf<AssetsListFeature>) {
         self.store = store
     }
     
     public var body: some View {
-        NavigationStack {
-            Group {
-                if store.isLoading && store.assets.isEmpty {
-                    ProgressView("Loading assets...")
-                } else if let errorMessage = store.errorMessage {
-                    VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 50))
-                            .foregroundColor(.red)
-                        Text("Error")
-                            .font(.headline)
-                        Text(errorMessage)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
+        Group {
+            if store.isLoading && store.assets.isEmpty {
+                ProgressView("Loading assets...")
+            } else if let errorMessage = store.errorMessage {
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 50))
+                        .foregroundColor(.red)
+                    Text("Error")
+                        .font(.headline)
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
+            } else if store.assets.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 50))
+                        .foregroundColor(.gray)
+                    Text("No Assets")
+                        .font(.headline)
+                    Text("There are no assets to display")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+            } else {
+                List(store.assets) { asset in
+                    Button {
+                        store.send(.assetTapped(id: asset.id))
+                    } label: {
+                        AssetRowView(asset: asset)
                     }
-                    .padding()
-                } else if store.assets.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 50))
-                            .foregroundColor(.gray)
-                        Text("No Assets")
-                            .font(.headline)
-                        Text("There are no assets to display")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                } else {
-                    List(store.assets) { asset in
-                        Button {
-                            store.send(.assetTapped(id: asset.id))
-                        } label: {
-                            AssetRowView(asset: asset)
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .navigationTitle("Assets")
-            .navigationDestination(
-                item: $store.scope(state: \.destination?.assetDetail, action: \.destination.assetDetail)
-            ) { store in
-                AssetDetailView(store: store)
-            }
         }
+        .navigationTitle("Assets")
         .onAppear {
             store.send(.onAppear)
         }
