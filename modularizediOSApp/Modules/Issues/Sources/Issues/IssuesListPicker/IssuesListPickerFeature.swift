@@ -19,17 +19,20 @@ public struct IssuesListPickerFeature: Sendable {
         var issues: [IssueUIModel] = []
         var isLoading: Bool = false
         var errorMessage: String?
+        var selectedIssueId: String?
         @Presents var destination: Destination.State?
         
         public init(
             issues: [IssueUIModel] = [],
             isLoading: Bool = false,
             errorMessage: String? = nil,
+            selectedIssueId: String? = nil,
             destination: Destination.State? = nil
         ) {
             self.issues = issues
             self.isLoading = isLoading
             self.errorMessage = errorMessage
+            self.selectedIssueId = selectedIssueId
             self.destination = destination
         }
     }
@@ -78,9 +81,12 @@ public struct IssuesListPickerFeature: Sendable {
                 state.destination = .issueDetail(IssueDetailFeature.State(issueId: id))
                 return .none
                 
-            case .issueSelected:
-                // Parent will handle the selection through the dismiss effect
+            case let .issueSelected(issue):
+                // Mark as selected and dismiss
+                state.selectedIssueId = issue.id
                 return .run { _ in
+                    // Small delay to show the selection animation
+                    try? await Task.sleep(for: .milliseconds(150))
                     await dismiss()
                 }
                 

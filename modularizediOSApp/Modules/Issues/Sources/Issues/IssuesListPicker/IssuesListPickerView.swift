@@ -52,33 +52,33 @@ public struct IssuesListPickerView: View {
                 .padding()
             } else {
                 List(store.issues) { issue in
-                    Button {
-                        onIssueSelected(issue)
-                        store.send(.issueSelected(issue))
-                    } label: {
-                        IssuePickerRowView(issue: issue)
-                    }
-                    .buttonStyle(.plain)
-                    .swipeActions(edge: .trailing) {
-                        Button {
-                            store.send(.issueTapped(id: issue.id))
-                        } label: {
-                            Label("Details", systemImage: "info.circle")
+                    HStack(spacing: 12) {
+                        // Selection button (left side)
+                        Button(action: {
+                            onIssueSelected(issue)
+                            store.send(.issueSelected(issue))
+                        }) {
+                            Image(systemName: store.selectedIssueId == issue.id ? "circle.fill" : "circle")
+                                .font(.title2)
+                                .foregroundColor(.blue)
                         }
-                        .tint(.blue)
+                        .buttonStyle(.plain)
+                        
+                        // Tappable row content (navigates to detail)
+                        Button(action: {
+                            store.send(.issueTapped(id: issue.id))
+                        }) {
+                            IssuePickerRowView(issue: issue)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(IssueRowButtonStyle())
                     }
                 }
             }
         }
         .navigationTitle("Select Issue")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
-                    store.send(.cancelTapped)
-                }
-            }
-        }
         .navigationDestination(
             item: $store.scope(state: \.destination?.issueDetail, action: \.destination.issueDetail)
         ) { store in
@@ -131,6 +131,18 @@ struct IssuePickerRowView: View {
         case "closed": return .green
         default: return .gray
         }
+    }
+}
+
+struct IssueRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                configuration.isPressed 
+                    ? Color.gray.opacity(0.2)
+                    : Color.clear
+            )
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 

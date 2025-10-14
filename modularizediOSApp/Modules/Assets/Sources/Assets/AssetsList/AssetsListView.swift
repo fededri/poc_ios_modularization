@@ -47,12 +47,14 @@ public struct AssetsListView: View {
                 .padding()
             } else {
                 List(store.assets) { asset in
-                    Button {
+                    Button(action: {
                         store.send(.assetTapped(id: asset.id))
-                    } label: {
+                    }) {
                         AssetRowView(asset: asset)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ListRowButtonStyle())
                 }
             }
         }
@@ -104,6 +106,18 @@ struct AssetRowView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+struct ListRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                configuration.isPressed 
+                    ? Color.gray.opacity(0.2)
+                    : Color.clear
+            )
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
