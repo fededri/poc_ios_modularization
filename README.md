@@ -9,14 +9,9 @@ A proof-of-concept demonstrating how to modularize an iOS application that uses 
 - [Architecture](#architecture)
 - [Key Concepts](#key-concepts)
 - [The Navigation Pattern Problem](#the-navigation-pattern-problem)
-- [Problems & Solutions](#problems--solutions)
 - [Pros and Cons](#pros-and-cons)
 - [Key Learnings](#key-learnings)
-- [Project Structure](#project-structure)
 - [Code Examples](#code-examples)
-- [Getting Started](#getting-started)
-- [Technologies Used](#technologies-used)
-- [Future Improvements](#future-improvements)
 
 ## Overview
 
@@ -310,63 +305,6 @@ NavigationStack(path: coordinatorPath)
   └─ Issues Picker     ← All in same path
 
 Back button works correctly!
-```
-
-### Problem 1: SPM Cannot Depend on KMP Framework
-
-**Problem:** Swift Package Manager modules cannot link KMP .framework files directly.
-
-**Solution:** 
-- Protocol abstraction layer in modules
-- App target provides concrete implementations using KMP
-- Dependency injection via TCA's `@Dependency` system
-
-**Benefits:**
-- Modules work in isolation
-- SwiftUI Previews don't need KMP
-- Tests use mocks instead of real KMP implementations
-
-### Problem 2: Cross-Module Navigation Back Button
-
-**Problem:** Back button showed "Assets" from Issues screen, skipping Asset Detail because:
-- Asset Detail used TCA `@Presents` (not in NavigationStack path)
-- Issues used separate `NavigationPath`
-- iOS saw disconnected navigation stacks
-
-**Solution:** 
-- Coordinator with single `NavigationStack.StackState` for all cross-module screens
-- All screens that participate in cross-module navigation are added to the coordinator's path
-- Proper back button hierarchy: Issues → Asset Detail → Assets List
-
-### Problem 3: Module Communication Without Direct Dependencies
-
-**Problem:** Assets module cannot depend on Issues module (and vice versa), but they need to communicate.
-
-**Solution:**
-- App target coordinator observes actions from both modules
-- Coordinator orchestrates navigation and data flow
-- Updates state across features via `StackState` manipulation
-
-### Problem 4: SwiftUI Previews in Modules
-
-**Problem:** Previews need data but modules cannot depend on KMP.
-
-**Solution:** Test dependencies with mock data.
-
-**Example:**
-```swift
-#Preview {
-    AssetsListView(store: Store(initialState: AssetsListFeature.State()) {
-        AssetsListFeature()
-    } withDependencies: {
-        $0.assetsListRepository.getAllAssets = { 
-            [
-                AssetUIModel(id: "1", name: "Asset 1", status: "Active"),
-                AssetUIModel(id: "2", name: "Asset 2", status: "Inactive")
-            ]
-        }
-    })
-}
 ```
 
 ## Pros and Cons
