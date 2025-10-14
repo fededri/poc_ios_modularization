@@ -20,19 +20,22 @@ struct AssetDetailFeature {
         var isLoading: Bool = false
         var errorMessage: String?
         var linkedIssue: IssueUIModel?
+        var showIssuesListPicker: Bool = false
         
         init(
             assetId: String,
             assetDetail: AssetDetailUIModel? = nil,
             isLoading: Bool = false,
             errorMessage: String? = nil,
-            linkedIssue: IssueUIModel? = nil
+            linkedIssue: IssueUIModel? = nil,
+            showIssuesListPicker: Bool = false
         ) {
             self.assetId = assetId
             self.assetDetail = assetDetail
             self.isLoading = isLoading
             self.errorMessage = errorMessage
             self.linkedIssue = linkedIssue
+            self.showIssuesListPicker = showIssuesListPicker
         }
     }
     
@@ -42,6 +45,7 @@ struct AssetDetailFeature {
         case errorOccurred(String)
         case linkIssueTapped
         case issueSelected(IssueUIModel)
+        case dismissIssuesPicker
     }
     
     init() {}
@@ -74,12 +78,18 @@ struct AssetDetailFeature {
                 return .none
                 
             case .linkIssueTapped:
-                // Navigation will be handled by the view using Navigator
+                // Show the issues picker modal
+                state.showIssuesListPicker = true
                 return .none
                 
             case let .issueSelected(issue):
-                // Store the selected issue directly
+                // Store the selected issue and dismiss the modal
                 state.linkedIssue = issue
+                state.showIssuesListPicker = false
+                return .none
+                
+            case .dismissIssuesPicker:
+                state.showIssuesListPicker = false
                 return .none
             }
         }

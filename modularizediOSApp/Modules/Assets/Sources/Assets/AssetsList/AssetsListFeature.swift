@@ -19,7 +19,6 @@ struct AssetsListFeature {
         var isLoading: Bool = false
         var errorMessage: String?
         @Presents var destination: Destination.State?
-        @ObservationStateIgnored var navigator: (any Navigator)? = nil
         
         init(
             assets: [AssetUIModel] = [],
@@ -32,12 +31,6 @@ struct AssetsListFeature {
             self.errorMessage = errorMessage
             self.destination = destination
         }
-        
-        public static func == (lhs: State, rhs: State) -> Bool {
-            return lhs.assets == rhs.assets &&
-            lhs.isLoading == rhs.isLoading &&
-            lhs.errorMessage == rhs.errorMessage
-        }
     }
     
     enum Action {
@@ -46,7 +39,6 @@ struct AssetsListFeature {
         case errorOccurred(String)
         case assetTapped(id: String)
         case destination(PresentationAction<Destination.Action>)
-        case setNavigator(any Navigator)
     }
     
     @Reducer(state: .equatable)
@@ -69,9 +61,6 @@ struct AssetsListFeature {
                     }
                 }
                 
-            case .setNavigator(let navigator):
-                state.navigator = navigator
-                return .none
             case let .assetsResponse(assets):
                 state.isLoading = false
                 state.assets = assets
@@ -84,14 +73,10 @@ struct AssetsListFeature {
                 
             case let .assetTapped(id):
                 state.destination = .assetDetail(AssetDetailFeature.State(assetId: id))
-                //state.navigator?.navigate(to: .asset)
-                return .none
-                
-            case .destination(.presented(.assetDetail(.linkIssueTapped))):
-                state.navigator?.navigate(to: .issuesListPicker)
                 return .none
                 
             case .destination:
+                // AssetDetail now handles its own cross-module navigation via modals
                 return .none
             }
         }

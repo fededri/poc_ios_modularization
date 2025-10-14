@@ -19,11 +19,14 @@ class AppNavigationViewFactory: NavigationViewFactory, Equatable {
     func createView(for destination: NavigationDestination, onResult: @escaping (any NavigationResult) -> Void) -> AnyView {
         switch destination {
         case .issuesListPicker:
-//            
-//            let provider = IssuesListPickerProvider { _ in
-//                // TODO: call on result
-//            }
-            return AnyView(Text("Issues list here"))
+            let provider = IssuesListPickerProvider { issue in
+                onResult(issue)
+            }
+            return AnyView(
+                NavigationStack {
+                    provider.make()
+                }
+            )
         case .assetsList, .issuesList: fatalError("not implemented")
         }
     }

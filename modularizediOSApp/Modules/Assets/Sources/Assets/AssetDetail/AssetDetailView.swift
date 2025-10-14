@@ -10,7 +10,7 @@ import CoreInterfaces
 import SwiftUI
 
 struct AssetDetailView: View {
-    @Environment(\.navigator) var navigator: (any Navigator)?
+    @Environment(\.navigationViewFactory) var navigationViewFactory
     @Bindable var store: StoreOf<AssetDetailFeature>
     
     init(store: StoreOf<AssetDetailFeature>) {
@@ -117,19 +117,20 @@ struct AssetDetailView: View {
                 }
             }
         }
-        .navigationDestination(for: NavigationDestination.self) { destination in
-            destinationView(for: destination)
+        .sheet(isPresented: Binding(
+            get: { store.showIssuesListPicker },
+            set: { if !$0 { store.send(.dismissIssuesPicker) } }
+        )) {
+            if let navigationViewFactory = navigationViewFactory {
+                navigationViewFactory.createView(for: .issuesListPicker) { result in
+                    if let issueResult = result as? IssueUIModel {
+                        store.send(.issueSelected(issueResult))
+                    }
+                }
+            }
         }
         .onAppear {
             store.send(.onAppear)
-        }
-    }
-    
-    @ViewBuilder
-    private func destinationView(for destination: NavigationDestination) -> some View {
-        navigator?.viewForDestination(destination) { result in
-//            store.send(.navigationResult(result))
-//            navigationPath.removeLast()
         }
     }
 }

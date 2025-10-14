@@ -52,13 +52,31 @@ struct IssuesListPickerView: View {
                 .padding()
             } else {
                 List(store.issues) { issue in
-                    Button {
-                        onIssueSelected(issue)
-                        store.send(.issueSelected(issue))
-                    } label: {
-                        IssuePickerRowView(issue: issue)
+                    HStack(spacing: 0) {
+                        // Main row area - navigates to detail
+                        Button {
+                            store.send(.issueTapped(id: issue.id))
+                        } label: {
+                            IssuePickerRowView(issue: issue)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        // Select button - picks the issue
+                        Button {
+                            onIssueSelected(issue)
+                            store.send(.issueSelected(issue))
+                        } label: {
+                            Text("Select")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.blue)
+                                .cornerRadius(8)
+                        }
+                        .padding(.leading, 8)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -70,6 +88,11 @@ struct IssuesListPickerView: View {
                     store.send(.cancelTapped)
                 }
             }
+        }
+        .navigationDestination(
+            item: $store.scope(state: \.destination?.issueDetail, action: \.destination.issueDetail)
+        ) { store in
+            IssueDetailView(store: store)
         }
         .onAppear {
             store.send(.onAppear)

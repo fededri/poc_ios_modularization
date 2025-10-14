@@ -10,16 +10,14 @@ import CoreInterfaces
 import SwiftUI
 
 public struct AssetsListView: View {
-    @Environment(\.navigationViewFactory) var navigationViewFactory
     @Bindable var store: StoreOf<AssetsListFeature>
-    @State var navigationPath = NavigationPath()
     
     init(store: StoreOf<AssetsListFeature>) {
         self.store = store
     }
     
     public var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack {
             Group {
                 if store.isLoading && store.assets.isEmpty {
                     ProgressView("Loading assets...")
@@ -60,13 +58,6 @@ public struct AssetsListView: View {
                 }
             }
             .navigationTitle("Assets")
-            .navigationDestination(for: NavigationDestination.self) { destination in
-                destinationView(for: destination)
-            }
-            .task {
-                guard let navigationViewFactory = navigationViewFactory else { return }
-                store.send(.setNavigator(PathNavigator(navigationPath: $navigationPath, viewFactory: navigationViewFactory)))
-            }
             .navigationDestination(
                 item: $store.scope(state: \.destination?.assetDetail, action: \.destination.assetDetail)
             ) { store in
@@ -76,15 +67,6 @@ public struct AssetsListView: View {
         .onAppear {
             store.send(.onAppear)
         }
-    }
-    
-    @ViewBuilder
-    private func destinationView(for destination: NavigationDestination) -> some View {
-        navigationViewFactory?.createView(for: destination)
-//        navigator?.viewForDestination(destination) { result in
-//            //store.send(.navigationResult(result))
-//            navigationPath.removeLast()
-//        }
     }
 }
 
