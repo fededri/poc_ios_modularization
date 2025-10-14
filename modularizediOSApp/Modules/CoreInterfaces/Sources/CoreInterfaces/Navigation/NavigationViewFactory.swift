@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-public protocol NavigationViewFactory: Equatable {
+public protocol NavigationViewFactory: Equatable, Sendable {
     func createView(for destination: NavigationDestination) -> AnyView
     func createView(for destination: NavigationDestination, onResult: @escaping (any NavigationResult) -> Void) -> AnyView
 }

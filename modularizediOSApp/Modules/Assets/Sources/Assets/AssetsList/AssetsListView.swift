@@ -10,61 +10,81 @@ import CoreInterfaces
 import SwiftUI
 
 public struct AssetsListView: View {
+    @Environment(\.navigationViewFactory) var navigationViewFactory
     @Bindable var store: StoreOf<AssetsListFeature>
+    @State var navigationPath = NavigationPath()
     
     init(store: StoreOf<AssetsListFeature>) {
         self.store = store
     }
     
     public var body: some View {
-        Group {
-            if store.isLoading && store.assets.isEmpty {
-                ProgressView("Loading assets...")
-            } else if let errorMessage = store.errorMessage {
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 50))
-                        .foregroundColor(.red)
-                    Text("Error")
-                        .font(.headline)
-                    Text(errorMessage)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding()
-            } else if store.assets.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "tray")
-                        .font(.system(size: 50))
-                        .foregroundColor(.gray)
-                    Text("No Assets")
-                        .font(.headline)
-                    Text("There are no assets to display")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-            } else {
-                List(store.assets) { asset in
-                    Button {
-                        store.send(.assetTapped(id: asset.id))
-                    } label: {
-                        AssetRowView(asset: asset)
+        NavigationStack(path: $navigationPath) {
+            Group {
+                if store.isLoading && store.assets.isEmpty {
+                    ProgressView("Loading assets...")
+                } else if let errorMessage = store.errorMessage {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 50))
+                            .foregroundColor(.red)
+                        Text("Error")
+                            .font(.headline)
+                        Text(errorMessage)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                     }
-                    .buttonStyle(.plain)
+                    .padding()
+                } else if store.assets.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "tray")
+                            .font(.system(size: 50))
+                            .foregroundColor(.gray)
+                        Text("No Assets")
+                            .font(.headline)
+                        Text("There are no assets to display")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                } else {
+                    List(store.assets) { asset in
+                        Button {
+                            store.send(.assetTapped(id: asset.id))
+                        } label: {
+                            AssetRowView(asset: asset)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
-        }
-        .navigationTitle("Assets")
-        .navigationDestination(
-            item: $store.scope(state: \.destination?.assetDetail, action: \.destination.assetDetail)
-        ) { store in
-            AssetDetailView(store: store)
+            .navigationTitle("Assets")
+            .navigationDestination(for: NavigationDestination.self) { destination in
+                destinationView(for: destination)
+            }
+            .task {
+                guard let navigationViewFactory = navigationViewFactory else { return }
+                store.send(.setNavigator(PathNavigator(navigationPath: $navigationPath, viewFactory: navigationViewFactory)))
+            }
+            .navigationDestination(
+                item: $store.scope(state: \.destination?.assetDetail, action: \.destination.assetDetail)
+            ) { store in
+                AssetDetailView(store: store)
+            }
         }
         .onAppear {
             store.send(.onAppear)
         }
+    }
+    
+    @ViewBuilder
+    private func destinationView(for destination: NavigationDestination) -> some View {
+        navigationViewFactory?.createView(for: destination)
+//        navigator?.viewForDestination(destination) { result in
+//            //store.send(.navigationResult(result))
+//            navigationPath.removeLast()
+//        }
     }
 }
 

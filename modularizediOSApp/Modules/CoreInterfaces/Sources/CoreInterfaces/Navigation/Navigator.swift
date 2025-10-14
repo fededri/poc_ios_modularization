@@ -30,10 +30,19 @@ private struct NavigatorKey: EnvironmentKey {
     static let defaultValue: (any Navigator)? = nil
 }
 
+private struct NavigationViewFactoryKey: EnvironmentKey {
+    static let defaultValue: (any NavigationViewFactory)? = nil
+}
+
 public extension EnvironmentValues {
     var navigator: (any Navigator)? {
         get { self[NavigatorKey.self] }
         set { self[NavigatorKey.self] = newValue }
+    }
+    
+    var navigationViewFactory: (any NavigationViewFactory)? {
+        get { self[NavigationViewFactoryKey.self] }
+        set { self[NavigationViewFactoryKey.self] = newValue }
     }
 }
 

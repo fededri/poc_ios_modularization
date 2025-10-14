@@ -5,25 +5,17 @@ import SwiftUI
 import shared
 
 struct ContentView: View {
-    @State private var navigationPath = NavigationPath()
-    @State private var navigator: (any Navigator)? = nil  // Starts as nil, set in onAppear
     private let assetsProvider = Assets.AssetsListProvider()
+    private let navigationViewFactory = AppNavigationViewFactory()
     
 	var body: some View {
-        NavigationStack(path: $navigationPath) {
-            NavigationLink("Start") {
-                assetsProvider.make()
-            }
-        }
-        .environment(\.navigator, navigator)
-        .onAppear {
-            if navigator == nil {
-                navigator = PathNavigator(
-                    navigationPath: $navigationPath, 
-                    viewFactory: AppNavigationViewFactory()
-                )
-            }
-        }
+//        NavigationStack {
+//            NavigationLink("Start") {
+//                assetsProvider.make()
+//            }
+//        }
+        assetsProvider.make()
+        .environment(\.navigationViewFactory, navigationViewFactory)
 	}
 }
 

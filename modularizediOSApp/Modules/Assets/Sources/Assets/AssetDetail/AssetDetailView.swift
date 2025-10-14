@@ -111,12 +111,7 @@ struct AssetDetailView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    guard let navigator = navigator else { return }
-                    navigator.navigate(to: .issuesListPicker) { result in
-                        if let issue = result as? IssueUIModel {
-                            //store.send(.issueSelected(issue))
-                        }
-                    }
+                    store.send(.linkIssueTapped)
                 } label: {
                     Label("Link Issue", systemImage: "link.badge.plus")
                 }
