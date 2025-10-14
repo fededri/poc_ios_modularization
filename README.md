@@ -7,7 +7,6 @@ A proof-of-concept demonstrating how to modularize an iOS application that uses 
 - [Overview](#overview)
 - [Problems Solved](#problems-solved)
 - [Architecture](#architecture)
-- [Key Concepts](#key-concepts)
 - [The Navigation Pattern Problem](#the-navigation-pattern-problem)
 - [Pros and Cons](#pros-and-cons)
 - [Key Learnings](#key-learnings)
@@ -140,41 +139,6 @@ stateDiagram-v2
     AssetsList --> Filters: Filter Button<br/>(@Presents - Modal)
     Filters --> AssetsList: Dismiss<br/>(Close Modal)
 ```
-
-## Key Concepts
-
-### KMP Integration Pattern
-
-- **Modules define what they need** (protocols) but not how (implementations)
-- **App target bridges** Swift modules and KMP framework
-- **Live repositories** in App target (e.g., `AssetsListLiveRepository.swift`) map KMP models to UIModels
-- **Enables SwiftUI Previews** in modules without KMP framework
-- **Test targets provide mock data** without KMP
-
-### Coordinator Pattern
-
-- **Centralized navigation management** in `AppCoordinator.swift`
-- **Observes only cross-module navigation actions** via TCA composition
-- **Manages single `NavigationStack` path** for cross-module navigation
-- **Handles cross-module data flow** (e.g., passing selected issue to asset detail)
-
-### Navigation Strategy (Hybrid Approach)
-
-- **Coordinator Path**: Cross-module capable screens (AssetDetail, IssuesPicker)
-  - These screens are added to the coordinator's `StackState`
-  - Ensures proper back button behavior across module boundaries
-  
-- **@Presents**: Internal-only screens (Filters, Settings)
-  - These screens stay within their module
-  - Don't navigate to other modules
-  - Keeps the coordinator lean and focused
-
-### TCA Composition
-
-- **Parent features observe child actions** through reducer composition
-- **Action bubbling** enables coordinator to intercept navigation actions
-- **State updates** managed through reducers
-- **Dependencies injected** via TCA's dependency system
 
 ## The Navigation Pattern Problem
 
