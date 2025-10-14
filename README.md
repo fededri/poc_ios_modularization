@@ -8,6 +8,7 @@ A proof-of-concept demonstrating how to modularize an iOS application that uses 
 - [Problems Solved](#problems-solved)
 - [Architecture](#architecture)
 - [Key Concepts](#key-concepts)
+- [The Navigation Pattern Problem](#the-navigation-pattern-problem)
 - [Problems & Solutions](#problems--solutions)
 - [Pros and Cons](#pros-and-cons)
 - [Key Learnings](#key-learnings)
@@ -158,7 +159,7 @@ stateDiagram-v2
 ### Coordinator Pattern
 
 - **Centralized navigation management** in `AppCoordinator.swift`
-- **Observes all child actions** via TCA composition
+- **Observes only cross-module navigation actions** via TCA composition
 - **Manages single `NavigationStack` path** for cross-module navigation
 - **Handles cross-module data flow** (e.g., passing selected issue to asset detail)
 
@@ -179,6 +180,137 @@ stateDiagram-v2
 - **Action bubbling** enables coordinator to intercept navigation actions
 - **State updates** managed through reducers
 - **Dependencies injected** via TCA's dependency system
+
+## The Navigation Pattern Problem
+
+### Understanding Two Navigation Methods
+
+SwiftUI and TCA provide two fundamentally different approaches to navigation, and **mixing them incorrectly causes disconnected navigation stacks**:
+
+#### 1. Path-Based Navigation (NavigationStack)
+
+```swift
+NavigationStack(path: $path) {
+    RootView()
+        .navigationDestination(for: Destination.self) { destination in
+            // Views pushed here are part of the path
+        }
+}
+```
+
+**Characteristics:**
+- Uses a type-erased array/stack (`NavigationPath`)
+- Each navigation appends to the path
+- Back button pops from the path
+- All screens in the path share the same navigation context
+
+#### 2. Tree-Based Navigation (TCA @Presents)
+
+```swift
+@ObservableState
+struct State {
+    @Presents var destination: Destination.State?
+}
+
+// In view
+.navigationDestination(item: $store.scope(state: \.destination)) { store in
+    // View shown when destination is non-nil
+}
+```
+
+**Characteristics:**
+- Uses optional state (`Destination?`)
+- Setting state to non-nil shows the screen
+- Setting state to nil dismisses the screen
+- Creates a separate navigation context
+
+### The Critical Problem: Disconnected Stacks
+
+**What happens when you mix them incorrectly:**
+
+```
+Assets List (in path)
+  ├─> Asset Detail (@Presents - NOT in path) ⚠️
+        └─> Issues Picker (in separate path) ⚠️
+```
+
+**Result:**
+1. Assets List is in the main `NavigationStack` path
+2. Asset Detail uses `@Presents` - iOS treats this as a separate navigation context
+3. When Asset Detail navigates to Issues Picker, iOS sees this as starting a **new** navigation stack
+4. The back button from Issues Picker thinks the previous screen was Assets List (the last screen in the path)
+5. Asset Detail is **skipped** when going back!
+
+### Why This Happens
+
+SwiftUI's `NavigationStack` manages navigation history through the `path`. When you use `@Presents` with `.navigationDestination(item:)`, you're creating a navigation destination that's **outside the path**. From iOS's perspective:
+
+- **Path contains:** `[AssetsList]`
+- **@Presents shows:** `AssetDetail` (not tracked in path)
+- **New path started from AssetDetail:** `[IssuesPicker]`
+
+When you tap back from IssuesPicker, iOS looks at the path and sees only `AssetsList`, so it navigates there, skipping the `@Presents` destination.
+
+### The Solution: Consistent Path-Based Navigation
+
+For cross-module navigation chains, **all screens must be in the same path**:
+
+```swift
+// ✅ Correct: All screens in coordinator's path
+@Reducer
+struct AppCoordinator {
+    @ObservableState
+    struct State {
+        var path = StackState<Path.State>()  // Single source of truth
+        var assetsList = AssetsListFeature.State()
+    }
+    
+    @Reducer
+    enum Path {
+        case assetDetail(AssetDetailFeature)      // In path ✓
+        case issuesListPicker(IssuesListPickerFeature)  // In path ✓
+    }
+}
+```
+
+**Result:**
+- Path contains: `[AssetsList] → [AssetDetail] → [IssuesPicker]`
+- Back button correctly navigates: IssuesPicker → AssetDetail → AssetsList
+
+### When Each Method Should Be Used
+
+| Method | Use Case | Example |
+|--------|----------|---------|
+| **Path-Based (StackState)** | Screens that can navigate to other modules | AssetDetail, IssuesPicker |
+| **Optional-Based (@Presents)** | Internal-only screens, modals, sheets | AssetFilters |
+
+**Rule of Thumb:**
+- If a screen might navigate to another module → **Path-based**
+- If a screen only navigates within its own module → **@Presents** is fine
+- Modal presentations (sheets, popovers) → **@Presents** is fine
+
+### Visual Comparison
+
+**❌ Incorrect: Mixed Navigation**
+```
+NavigationStack(path: assetsPath)
+  └─ Assets List
+       └─ Asset Detail (@Presents) ⚠️
+            └─ NavigationStack(path: issuesPath) ⚠️
+                 └─ Issues Picker
+
+Back button skips Asset Detail!
+```
+
+**✅ Correct: Single Path**
+```
+NavigationStack(path: coordinatorPath)
+  ├─ Assets List
+  ├─ Asset Detail      ← All in same path
+  └─ Issues Picker     ← All in same path
+
+Back button works correctly!
+```
 
 ## Problems & Solutions
 
@@ -275,8 +407,9 @@ stateDiagram-v2
 
 1. **Cross-module capable screens** must be in coordinator path
 2. **Internal-only screens** can use `@Presents`
-3. **Cannot mix `@Presents` with cross-module navigation** (creates disconnected stacks)
+3. **Cannot mix `@Presents` with cross-module navigation** (creates disconnected stacks) - see [The Navigation Pattern Problem](#the-navigation-pattern-problem) for detailed explanation
 4. **Coordinator intercepts actions** to manage navigation
+5. **Single NavigationStack path** ensures proper back button behavior across all modules
 
 ### Architecture Decisions
 
