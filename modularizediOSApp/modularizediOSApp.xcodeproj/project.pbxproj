@@ -23,6 +23,7 @@
 		4EE9D7522E9F6FDF0035C73D /* ActionObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE9D7502E9F6FDF0035C73D /* ActionObserver.swift */; };
 		4EE9D7542E9F7DEC0035C73D /* IssuesNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE9D7532E9F7DEC0035C73D /* IssuesNavigationController.swift */; };
 		4EE9D7562E9F7DF60035C73D /* AssetsNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE9D7552E9F7DF60035C73D /* AssetsNavigationController.swift */; };
+		4EE9D75C2EA038AF0035C73D /* NavigationResultBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE9D75A2EA038AF0035C73D /* NavigationResultBus.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
@@ -53,6 +54,7 @@
 		4EE9D7502E9F6FDF0035C73D /* ActionObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionObserver.swift; sourceTree = "<group>"; };
 		4EE9D7532E9F7DEC0035C73D /* IssuesNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssuesNavigationController.swift; sourceTree = "<group>"; };
 		4EE9D7552E9F7DF60035C73D /* AssetsNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetsNavigationController.swift; sourceTree = "<group>"; };
+		4EE9D75A2EA038AF0035C73D /* NavigationResultBus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationResultBus.swift; sourceTree = "<group>"; };
 		7555FF7B242A565900829871 /* modularizediOSApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = modularizediOSApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7555FF82242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF8C242A565B00829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -137,6 +139,14 @@
 			path = Dependencies;
 			sourceTree = "<group>";
 		};
+		4EE9D75B2EA038AF0035C73D /* Navigation */ = {
+			isa = PBXGroup;
+			children = (
+				4EE9D75A2EA038AF0035C73D /* NavigationResultBus.swift */,
+			);
+			path = Navigation;
+			sourceTree = "<group>";
+		};
 		7555FF72242A565900829871 = {
 			isa = PBXGroup;
 			children = (
@@ -158,6 +168,7 @@
 		7555FF7D242A565900829871 /* modularizediOSApp */ = {
 			isa = PBXGroup;
 			children = (
+				4EE9D75B2EA038AF0035C73D /* Navigation */,
 				4EE9D7582E9F7EAE0035C73D /* Dependencies */,
 				4EE9D7512E9F6FDF0035C73D /* TCABridge */,
 				4EE9D7202E9ADB640035C73D /* Assets */,
@@ -283,6 +294,7 @@
 				4EE9D7542E9F7DEC0035C73D /* IssuesNavigationController.swift in Sources */,
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
+				4EE9D75C2EA038AF0035C73D /* NavigationResultBus.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

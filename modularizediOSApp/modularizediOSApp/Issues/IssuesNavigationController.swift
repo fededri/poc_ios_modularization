@@ -2,7 +2,7 @@
 //  IssuesNavigationController.swift
 //  modularizediOSApp
 //
-//  Created by Cursor on 15/10/25.
+//  Created by Federico Torres on 15/10/25.
 //
 
 import Combine
@@ -14,11 +14,17 @@ import SwiftUI
 final class IssuesNavigationController {
     private let path: Binding<NavigationPath>
     private let navigation: IssuesNavigation
+    private let resultBus: NavigationResultBus
     private var cancellables = Set<AnyCancellable>()
     
-    init(path: Binding<NavigationPath>, navigation: IssuesNavigation) {
+    init(
+        path: Binding<NavigationPath>,
+        navigation: IssuesNavigation,
+        resultBus: NavigationResultBus
+    ) {
         self.path = path
         self.navigation = navigation
+        self.resultBus = resultBus
         setupSubscriptions()
     }
     
@@ -32,10 +38,11 @@ final class IssuesNavigationController {
     
     private func handle(_ action: IssuesNavigation.Action) {
         switch action {
-        case .issueSelected, .cancelTapped:
-            // Results are handled by calling controllers (e.g., AssetsNavigationController)
-            // This controller just publishes the action for others to listen to
-            break
+        case .issueSelected(let issue):
+            // Publish result to bus instead of directly handling it
+            resultBus.publish(.issueSelected(issue))
+        case .cancelTapped:
+            resultBus.publish(.issueSelected(nil))
         }
     }
 }

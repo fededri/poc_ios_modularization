@@ -38,6 +38,9 @@ final class AppCoordinator {
     let assetsNavigation = AssetsNavigation()
     let issuesNavigation = IssuesNavigation()
     
+    // Centralized result bus for navigation results
+    private let resultBus = NavigationResultBus()
+    
     // Navigation controllers (handle navigation logic)
     private(set) var assetsNavigationController: AssetsNavigationController?
     private(set) var issuesNavigationController: IssuesNavigationController?
@@ -49,13 +52,14 @@ final class AppCoordinator {
     func setupControllers(pathBinding: Binding<NavigationPath>) {
         issuesNavigationController = IssuesNavigationController(
             path: pathBinding,
-            navigation: issuesNavigation
+            navigation: issuesNavigation,
+            resultBus: resultBus
         )
         
         assetsNavigationController = AssetsNavigationController(
             path: pathBinding,
             navigation: assetsNavigation,
-            issuesNavigation: issuesNavigation
+            resultBus: resultBus
         )
     }
 }

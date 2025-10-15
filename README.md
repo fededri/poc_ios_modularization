@@ -465,9 +465,48 @@ final class IssuesNavigation {
 
 **Scalability:** Adding 30 new navigation events to a module only requires adding cases to the Action enum - the coordinator still subscribes to just **one publisher per module**.
 
+### Navigation Result Bus Pattern
+
+To eliminate circular dependencies between controllers, navigation results flow through a **centralized result bus**:
+
+```swift
+// modularizediOSApp/Navigation/NavigationResultBus.swift
+final class NavigationResultBus {
+    enum Result {
+        case issueSelected(IssueUIModel?)
+        case assetSelected(AssetUIModel?)
+        case barcodeScanComplete(String?)
+    }
+    
+    private let resultPublisher = PassthroughSubject<Result, Never>()
+    
+    var results: AnyPublisher<Result, Never> {
+        resultPublisher.eraseToAnyPublisher()
+    }
+    
+    func publish(_ result: Result) {
+        resultPublisher.send(result)
+    }
+}
+```
+
+**Architecture:**
+```
+NavigationResultBus (central hub)
+    ↑ ↓
+┌───┴───┬──────────┬────────┐
+↓       ↓          ↓        ↓
+Assets  Issues   Forms   Scanner
+Controller  Controller  Controller  Controller
+
+✅ No circular dependencies
+✅ Any controller can navigate to any other
+✅ Bidirectional navigation works
+```
+
 ### Navigation Controllers with Async Results
 
-Each module has its own navigation controller that subscribes to Combine publishers and handles navigation logic. For result-returning navigation (pickers, scanners), controllers expose async methods:
+Each module has its own navigation controller that subscribes to Combine publishers and handles navigation logic. Controllers publish and subscribe to the **result bus** instead of depending on each other directly:
 
 ```swift
 // modularizediOSApp/Assets/AssetsNavigationController.swift
@@ -478,28 +517,31 @@ import SwiftUI
 
 final class AssetsNavigationController: AssetsNavigationControllerProtocol {
     private let path: Binding<NavigationPath>
+    private let navigation: AssetsNavigation
+    private let resultBus: NavigationResultBus  // ✅ Depends on result bus, not IssuesNavigation
     private var issuePickerContinuation: CheckedContinuation<IssueUIModel?, Never>?
     
-    init(path: Binding<NavigationPath>, 
-         navigation: AssetsNavigation,
-         issuesNavigation: IssuesNavigation) {
+    init(
+        path: Binding<NavigationPath>, 
+        navigation: AssetsNavigation,
+        resultBus: NavigationResultBus
+    ) {
         // Subscribe to module's own actions
         navigation.publisher.sink { self?.handle($0) }
         
-        // Subscribe to results from other modules (e.g., Issues picker)
-        issuesNavigation.publisher.sink { self?.handleIssuesAction($0) }
+        // ✅ Subscribe to result bus (NOT directly to other modules!)
+        resultBus.results.sink { self?.handleResult($0) }
     }
     
-    private func handleIssuesAction(_ action: IssuesNavigation.Action) {
-        switch action {
+    private func handleResult(_ result: NavigationResultBus.Result) {
+        switch result {
         case .issueSelected(let issue):
+            // Resume continuation if waiting for issue
             issuePickerContinuation?.resume(returning: issue)
             issuePickerContinuation = nil
             path.wrappedValue.removeLast()
-        case .cancelTapped:
-            issuePickerContinuation?.resume(returning: nil)
-            issuePickerContinuation = nil
-            path.wrappedValue.removeLast()
+        default:
+            break
         }
     }
     
@@ -511,13 +553,67 @@ final class AssetsNavigationController: AssetsNavigationControllerProtocol {
         }
     }
 }
+
+// IssuesNavigationController publishes results to bus
+final class IssuesNavigationController {
+    private let resultBus: NavigationResultBus
+    
+    private func handle(_ action: IssuesNavigation.Action) {
+        switch action {
+        case .issueSelected(let issue):
+            resultBus.publish(.issueSelected(issue))  // ✅ Publish to bus
+        case .cancelTapped:
+            resultBus.publish(.issueSelected(nil))
+        }
+    }
+}
 ```
 
-**Benefits of Async Navigation:**
-- ✅ Results are tied to the navigation call - no orphaned listeners
-- ✅ Type-safe - compiler enforces result handling
-- ✅ No race conditions - continuation ensures one-to-one mapping
-- ✅ Clean API - feels like a synchronous call but non-blocking
+**Benefits of Result Bus Pattern:**
+- ✅ **No circular dependencies** - Controllers only depend on the result bus
+- ✅ **Bidirectional navigation** - Any module can navigate to any other module
+- ✅ **Results are tied to calls** - No orphaned listeners or race conditions
+- ✅ **Type-safe** - Compiler enforces result handling
+- ✅ **Scalable** - Add new modules without modifying existing controllers
+- ✅ **Clean API** - Feels like synchronous call but non-blocking
+
+### Bidirectional Navigation Example
+
+With the result bus, **Issues can navigate to Assets** just as easily as Assets navigates to Issues:
+
+```swift
+// IssuesNavigationController gains ability to navigate to Assets
+final class IssuesNavigationController {
+    private let resultBus: NavigationResultBus
+    private var assetPickerContinuation: CheckedContinuation<AssetUIModel?, Never>?
+    
+    // Add async method for navigating to asset picker
+    func navigateToAssetPicker() async -> AssetUIModel? {
+        return await withCheckedContinuation { continuation in
+            assetPickerContinuation = continuation
+            path.wrappedValue.append(Destination.assetPicker)
+        }
+    }
+    
+    // Subscribe to asset results from bus
+    private func handleResult(_ result: NavigationResultBus.Result) {
+        switch result {
+        case .assetSelected(let asset):
+            assetPickerContinuation?.resume(returning: asset)
+            assetPickerContinuation = nil
+            path.wrappedValue.removeLast()
+        default:
+            break
+        }
+    }
+}
+
+// AssetsNavigationController publishes asset results to bus
+case .assetSelected(let asset):
+    resultBus.publish(.assetSelected(asset))
+```
+
+**No circular dependency!** Both controllers depend only on `NavigationResultBus`. ✅
 
 ### Feature Uses Async Navigation via TCA Effects
 

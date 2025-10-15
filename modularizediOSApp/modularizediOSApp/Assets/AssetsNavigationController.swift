@@ -16,7 +16,7 @@ import SwiftUI
 final class AssetsNavigationController: @unchecked Sendable, AssetsNavigationControllerProtocol {
     private let path: Binding<NavigationPath>
     private let navigation: AssetsNavigation
-    private let issuesNavigation: IssuesNavigation
+    private let resultBus: NavigationResultBus
     private var cancellables = Set<AnyCancellable>()
     
     // Continuation for async issue picker
@@ -25,26 +25,26 @@ final class AssetsNavigationController: @unchecked Sendable, AssetsNavigationCon
     init(
         path: Binding<NavigationPath>,
         navigation: AssetsNavigation,
-        issuesNavigation: IssuesNavigation
+        resultBus: NavigationResultBus
     ) {
         self.path = path
         self.navigation = navigation
-        self.issuesNavigation = issuesNavigation
+        self.resultBus = resultBus
         setupSubscriptions()
     }
     
     private func setupSubscriptions() {
-        // Handle fire-and-forget navigation from Assets features
+        // Subscribe to own navigation actions
         navigation.publisher
             .sink { [weak self] action in
                 self?.handle(action)
             }
             .store(in: &cancellables)
         
-        // Listen for results from Issues picker
-        issuesNavigation.publisher
-            .sink { [weak self] action in
-                self?.handleIssuesAction(action)
+        // Subscribe to results from result bus (not from IssuesNavigation!)
+        resultBus.results
+            .sink { [weak self] result in
+                self?.handleResult(result)
             }
             .store(in: &cancellables)
     }
@@ -59,16 +59,15 @@ final class AssetsNavigationController: @unchecked Sendable, AssetsNavigationCon
         }
     }
     
-    private func handleIssuesAction(_ action: IssuesNavigation.Action) {
-        switch action {
+    private func handleResult(_ result: NavigationResultBus.Result) {
+        switch result {
         case .issueSelected(let issue):
+            // Resume continuation if waiting for issue
             issuePickerContinuation?.resume(returning: issue)
             issuePickerContinuation = nil
             path.wrappedValue.removeLast()
-        case .cancelTapped:
-            issuePickerContinuation?.resume(returning: nil)
-            issuePickerContinuation = nil
-            path.wrappedValue.removeLast()
+        default:
+            break
         }
     }
     
