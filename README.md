@@ -314,6 +314,7 @@ Back button works correctly!
    - Coordinator coupling: knows about screens from multiple modules
    - Deep `@Presents` nesting cannot navigate cross-module in push / drilldown way
    - Requires understanding of TCA navigation patterns
+   - SwiftUI Previews work for individual screens but cannot test path-based navigation flows (handled by AppCoordinator)
 
 3. **KMP Abstraction Layer**
    - Need to write code that abstracts the Kotlin layer

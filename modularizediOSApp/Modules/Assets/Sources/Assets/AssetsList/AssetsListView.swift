@@ -122,30 +122,32 @@ struct ListRowButtonStyle: ButtonStyle {
 }
 
 #Preview {
-    AssetsListView(
-        store: Store(
-            initialState: AssetsListFeature.State(
-                assets: [
-                    AssetUIModel(
-                        id: "Asset 1",
-                        status: "Active",
-                        category: AssetCategoryType(id: "1", name: "Equipment")
-                    ),
-                    AssetUIModel(
-                        id: "Asset 2",
-                        status: "Inactive",
-                        category: AssetCategoryType(id: "2", name: "Furniture")
-                    ),
-                    AssetUIModel(
-                        id: "Asset 3",
-                        status: "Active",
-                        category: AssetCategoryType(id: "1", name: "Equipment")
-                    )
-                ]
-            )
-        ) {
-            AssetsListFeature()
-        }
-    )
+    NavigationStack {
+        AssetsListView(
+            store: Store(
+                initialState: AssetsListFeature.State(
+                    assets: [
+                        AssetUIModel(
+                            id: "Asset 1",
+                            status: "Active",
+                            category: AssetCategoryType(id: "1", name: "Equipment")
+                        ),
+                        AssetUIModel(
+                            id: "Asset 2",
+                            status: "Inactive",
+                            category: AssetCategoryType(id: "2", name: "Furniture")
+                        ),
+                        AssetUIModel(
+                            id: "Asset 3",
+                            status: "Active",
+                            category: AssetCategoryType(id: "1", name: "Equipment")
+                        )
+                    ]
+                )
+            ) {
+                AssetsListFeature()
+            }
+        )
+    }
 }
 
