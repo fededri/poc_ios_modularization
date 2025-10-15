@@ -78,6 +78,15 @@ graph TB
 2. **App target implements live repositories** that communicates with KMP
 3. **App target overrides `DependencyKey.liveValue`** with live implementations
 
+### Coordinator Architecture
+
+The AppCoordinator uses **vanilla SwiftUI with the Observation framework**, removing dependency on third-party navigation libraries:
+
+1. **@Observable coordinator** - Uses Apple's Observation framework (iOS 17+)
+2. **NavigationPath** - Apple's type-erased navigation stack
+3. **Combine publishers** - Module-specific navigation publishers bridge TCA features to coordinator
+4. **Action observers** - Intercept TCA actions and publish to Combine without modifying feature modules
+
 ### Data Flow with KMP
 
 ```mermaid
@@ -98,31 +107,53 @@ sequenceDiagram
     Feature-->>View: Update state
 ```
 
+### Navigation Flow with Combine
+
+```mermaid
+sequenceDiagram
+    participant View
+    participant TCA Feature
+    participant ActionObserver
+    participant Combine Publisher
+    participant AppCoordinator
+    participant NavigationPath
+    
+    View->>TCA Feature: User taps button
+    TCA Feature->>ActionObserver: Send action
+    ActionObserver->>Combine Publisher: Publish navigation event
+    Combine Publisher->>AppCoordinator: Receive event
+    AppCoordinator->>NavigationPath: Append destination
+    NavigationPath->>View: Navigate to new screen
+```
+
 ### Navigation Flow
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Coordinator
     participant AssetsList
+    participant AssetsNavigation
+    participant Coordinator
     participant AssetDetail
     participant IssuesPicker
     
     User->>AssetsList: Tap Asset
-    AssetsList->>Coordinator: .assetTapped(id)
+    AssetsList->>AssetsNavigation: assetTapped.send(id)
+    AssetsNavigation->>Coordinator: Combine publisher
     Coordinator->>Coordinator: path.append(.assetDetail)
     Coordinator->>AssetDetail: Navigate
     
     User->>AssetDetail: Tap Link Issue
-    AssetDetail->>Coordinator: .linkIssueTapped
+    AssetDetail->>AssetsNavigation: linkIssueTapped.send()
+    AssetsNavigation->>Coordinator: Combine publisher
     Coordinator->>Coordinator: path.append(.issuesListPicker)
     Coordinator->>IssuesPicker: Navigate
     
     User->>IssuesPicker: Select Issue
-    IssuesPicker->>Coordinator: .issueSelected(issue)
-    Coordinator->>Coordinator: Update AssetDetail state
+    IssuesPicker->>Coordinator: issueSelected.send(issue)
+    Coordinator->>Coordinator: Store selected issue
     Coordinator->>Coordinator: path.removeLast()
-    Coordinator->>AssetDetail: Navigate back
+    Coordinator->>AssetDetail: Navigate back with issue
 ```
 
 ### Navigation Stack States
@@ -313,8 +344,9 @@ Back button works correctly!
    - Must decide which screens go in path vs @Presents
    - Coordinator coupling: knows about screens from multiple modules
    - Deep `@Presents` nesting cannot navigate cross-module in push / drilldown way
-   - Requires understanding of TCA navigation patterns
+   - Requires understanding of Combine publishers and action observation
    - SwiftUI Previews work for individual screens but cannot test path-based navigation flows (handled by AppCoordinator)
+   - Bridge layer needed between TCA actions and Combine publishers
 
 3. **KMP Abstraction Layer**
    - Need to write code that abstracts the Kotlin layer
@@ -323,9 +355,10 @@ Back button works correctly!
    - Additional boilerplate for dependency injection
 
 4. **Learning Curve**
-   - Team must learn multiple patterns: TCA + Coordinator + Dependency Injection
+   - Team must learn multiple patterns: TCA + Combine + Coordinator + Dependency Injection
    - Understanding when to use path-based vs optional-based navigation
-   - Requires knowledge of both Swift and Kotlin ecosystems  
+   - Requires knowledge of both Swift and Kotlin ecosystems
+   - Understanding Combine publishers and action observation patterns
 
 ## Code Examples
 
@@ -390,77 +423,179 @@ extension Assets.AssetsListRepository: @retroactive DependencyKey {
 }
 ```
 
+### Module-Specific Navigation Publishers
+
+Each module has its own navigation publisher with an Action enum, keeping navigation concerns modular and scalable. **One publisher per module** emits all navigation actions:
+
+```swift
+// modularizediOSApp/Assets/AssetsNavigation.swift
+import Combine
+import CoreInterfaces
+
+final class AssetsNavigation {
+    /// All possible navigation actions from the Assets module
+    enum Action {
+        case assetTapped(id: String)
+        case linkIssueTapped
+    }
+    
+    /// Single publisher that emits all navigation actions
+    let publisher = PassthroughSubject<Action, Never>()
+}
+```
+
+```swift
+// modularizediOSApp/Issues/IssuesNavigation.swift
+import Combine
+import CoreInterfaces
+
+final class IssuesNavigation {
+    /// All possible navigation actions from the Issues module
+    enum Action {
+        case issueSelected(IssueUIModel)
+        case cancelTapped
+    }
+    
+    /// Single publisher that emits all navigation actions
+    let publisher = PassthroughSubject<Action, Never>()
+}
+```
+
+**Scalability:** Adding 30 new navigation events to a module only requires adding cases to the Action enum - the coordinator still subscribes to just **one publisher per module**.
+
 ### Coordinator Manages Cross-Module Navigation
+
+The coordinator uses vanilla SwiftUI and Observation framework, subscribing to each module's navigation publisher:
 
 ```swift
 // modularizediOSApp/AppCoordinator.swift
-import ComposableArchitecture
-import Assets
-import Issues
+import Combine
+import CoreInterfaces
+import Observation
+import SwiftUI
 
-@Reducer
-struct AppCoordinator {
-    @ObservableState
-    struct State: Equatable {
-        var path = StackState<Path.State>()
-        var assetsList = AssetsListFeature.State()
+enum Destination: Hashable {
+    case assetDetail(assetId: String)
+    case issuesListPicker
+}
+
+@Observable
+final class AppCoordinator {
+    var path = NavigationPath()
+    var selectedIssueForAsset: IssueUIModel?
+    
+    // Each module has its own navigation publisher
+    let assetsNavigation: AssetsNavigation
+    let issuesNavigation: IssuesNavigation
+    
+    private var cancellables = Set<AnyCancellable>()
+    
+    init(
+        assetsNavigation: AssetsNavigation = AssetsNavigation(),
+        issuesNavigation: IssuesNavigation = IssuesNavigation()
+    ) {
+        self.assetsNavigation = assetsNavigation
+        self.issuesNavigation = issuesNavigation
+        setupNavigationSubscriptions()
     }
     
-    enum Action {
-        case path(StackActionOf<Path>)
-        case assetsList(AssetsListFeature.Action)
-    }
-    
-    @Reducer(state: .equatable)
-    enum Path {
-        case assetDetail(AssetDetailFeature)
-        case issuesListPicker(IssuesListPickerFeature)
-    }
-    
-    var body: some ReducerOf<Self> {
-        Scope(state: \.assetsList, action: \.assetsList) {
-            AssetsListFeature()
-        }
-        
-        Reduce { state, action in
-            switch action {
-            // Navigate from Assets List to Asset Detail
-            case let .assetsList(.assetTapped(id)):
-                state.path.append(.assetDetail(AssetDetailFeature.State(assetId: id)))
-                return .none
-                
-            // Navigate from Asset Detail to Issues Picker
-            case .path(.element(id: _, action: .assetDetail(.linkIssueTapped))):
-                state.path.append(.issuesListPicker(IssuesListPickerFeature.State()))
-                return .none
-                
-            // Return from Issues Picker with selected issue
-            case let .path(.element(id: _, action: .issuesListPicker(.issueSelected(issue)))):
-                // Update the AssetDetail state with selected issue
-                for id in state.path.ids {
-                    if case .assetDetail(var assetDetailState) = state.path[id: id] {
-                        assetDetailState.linkedIssue = issue
-                        state.path[id: id] = .assetDetail(assetDetailState)
-                        break
-                    }
-                }
-                // Pop back to Asset Detail
-                state.path.removeLast()
-                return .none
-                
-            // Cancel Issues Picker
-            case .path(.element(id: _, action: .issuesListPicker(.cancelTapped))):
-                state.path.removeLast()
-                return .none
-                
-            default:
-                return .none
+    private func setupNavigationSubscriptions() {
+        // Subscribe to Assets module - single publisher for all actions
+        assetsNavigation.publisher
+            .sink { [weak self] action in
+                self?.handleAssetsAction(action)
             }
+            .store(in: &cancellables)
+        
+        // Subscribe to Issues module - single publisher for all actions
+        issuesNavigation.publisher
+            .sink { [weak self] action in
+                self?.handleIssuesAction(action)
+            }
+            .store(in: &cancellables)
+    }
+    
+    // MARK: - Action Handlers
+    
+    private func handleAssetsAction(_ action: AssetsNavigation.Action) {
+        switch action {
+        case .assetTapped(let id):
+            navigateToAssetDetail(assetId: id)
+        case .linkIssueTapped:
+            navigateToIssuesPicker()
         }
-        .forEach(\.path, action: \.path)
+    }
+    
+    private func handleIssuesAction(_ action: IssuesNavigation.Action) {
+        switch action {
+        case .issueSelected(let issue):
+            handleIssueSelected(issue)
+        case .cancelTapped:
+            path.removeLast()
+        }
+    }
+    
+    func navigateToAssetDetail(assetId: String) {
+        path.append(Destination.assetDetail(assetId: assetId))
+    }
+    
+    func navigateToIssuesPicker() {
+        path.append(Destination.issuesListPicker)
+    }
+    
+    func handleIssueSelected(_ issue: IssueUIModel) {
+        selectedIssueForAsset = issue
+        path.removeLast()
     }
 }
 ```
+
+### Bridging TCA to Combine
+
+The app target uses an ActionObserver to intercept TCA actions and publish them to Combine:
+
+```swift
+// modularizediOSApp/TCABridge/ActionObserver.swift
+import ComposableArchitecture
+
+struct ActionObserver<R: Reducer>: Reducer {
+    let base: R
+    let observe: (R.Action) -> Void
+    
+    var body: some ReducerOf<R> {
+        Reduce { state, action in
+            observe(action)
+            return .none
+        }
+        base
+    }
+}
+
+extension Reducer {
+    func observeActions(_ observe: @escaping (Action) -> Void) -> some Reducer<State, Action> {
+        ActionObserver(base: self, observe: observe)
+    }
+}
+```
+
+```swift
+// Usage in ContentView - bridges TCA actions to navigation publisher
+AssetsListView(
+    store: Store(initialState: AssetsListFeature.State()) {
+        AssetsListFeature()
+            .observeActions { action in
+                switch action {
+                case .assetTapped(let id):
+                    assetsNavigation.publisher.send(.assetTapped(id: id))
+                default:
+                    break
+                }
+            }
+    }
+)
+```
+
+**Key Benefit:** The coordinator only needs **2 subscriptions** for this entire app (one per module), regardless of how many navigation actions each module has. In a large app with 10 modules and 30 navigation events per module, you'd still only have **10 subscriptions** total.
 
 ### Feature Uses @Presents for Internal Navigation
 

@@ -18,6 +18,9 @@
 		4EE9D7382E9E2E0A0035C73D /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE9D7372E9E2E0A0035C73D /* AppCoordinator.swift */; };
 		4EE9D7412E9EE3EF0035C73D /* IssuesListLiveRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE9D73E2E9EE3EF0035C73D /* IssuesListLiveRepository.swift */; };
 		4EE9D7422E9EE3EF0035C73D /* IssueDetailLiveRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE9D73D2E9EE3EF0035C73D /* IssueDetailLiveRepository.swift */; };
+		4EE9D74D2E9F6FA60035C73D /* AssetsNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE9D74C2E9F6FA60035C73D /* AssetsNavigation.swift */; };
+		4EE9D74F2E9F6FAE0035C73D /* IssuesNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE9D74E2E9F6FAE0035C73D /* IssuesNavigation.swift */; };
+		4EE9D7522E9F6FDF0035C73D /* ActionObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE9D7502E9F6FDF0035C73D /* ActionObserver.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
@@ -43,6 +46,9 @@
 		4EE9D7372E9E2E0A0035C73D /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCoordinator.swift; sourceTree = "<group>"; };
 		4EE9D73D2E9EE3EF0035C73D /* IssueDetailLiveRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueDetailLiveRepository.swift; sourceTree = "<group>"; };
 		4EE9D73E2E9EE3EF0035C73D /* IssuesListLiveRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssuesListLiveRepository.swift; sourceTree = "<group>"; };
+		4EE9D74C2E9F6FA60035C73D /* AssetsNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetsNavigation.swift; sourceTree = "<group>"; };
+		4EE9D74E2E9F6FAE0035C73D /* IssuesNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssuesNavigation.swift; sourceTree = "<group>"; };
+		4EE9D7502E9F6FDF0035C73D /* ActionObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionObserver.swift; sourceTree = "<group>"; };
 		7555FF7B242A565900829871 /* modularizediOSApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = modularizediOSApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7555FF82242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF8C242A565B00829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -77,6 +83,7 @@
 		4EE9D7202E9ADB640035C73D /* Assets */ = {
 			isa = PBXGroup;
 			children = (
+				4EE9D74C2E9F6FA60035C73D /* AssetsNavigation.swift */,
 				4EE9D7212E9ADB6C0035C73D /* Dependencies */,
 			);
 			path = Assets;
@@ -103,9 +110,18 @@
 		4EE9D7402E9EE3EF0035C73D /* Issues */ = {
 			isa = PBXGroup;
 			children = (
+				4EE9D74E2E9F6FAE0035C73D /* IssuesNavigation.swift */,
 				4EE9D73F2E9EE3EF0035C73D /* Dependencies */,
 			);
 			path = Issues;
+			sourceTree = "<group>";
+		};
+		4EE9D7512E9F6FDF0035C73D /* TCABridge */ = {
+			isa = PBXGroup;
+			children = (
+				4EE9D7502E9F6FDF0035C73D /* ActionObserver.swift */,
+			);
+			path = TCABridge;
 			sourceTree = "<group>";
 		};
 		7555FF72242A565900829871 = {
@@ -129,6 +145,7 @@
 		7555FF7D242A565900829871 /* modularizediOSApp */ = {
 			isa = PBXGroup;
 			children = (
+				4EE9D7512E9F6FDF0035C73D /* TCABridge */,
 				4EE9D7202E9ADB640035C73D /* Assets */,
 				4EE9D7402E9EE3EF0035C73D /* Issues */,
 				4EE9D7372E9E2E0A0035C73D /* AppCoordinator.swift */,
@@ -241,9 +258,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				4EE9D7382E9E2E0A0035C73D /* AppCoordinator.swift in Sources */,
+				4EE9D7522E9F6FDF0035C73D /* ActionObserver.swift in Sources */,
 				4EE9D7232E9ADB7C0035C73D /* AssetsListLiveRepository.swift in Sources */,
 				4EE9D7282E9DAE2A0035C73D /* AssetDetailLiveRepository.swift in Sources */,
+				4EE9D74F2E9F6FAE0035C73D /* IssuesNavigation.swift in Sources */,
 				4EE9D7412E9EE3EF0035C73D /* IssuesListLiveRepository.swift in Sources */,
+				4EE9D74D2E9F6FA60035C73D /* AssetsNavigation.swift in Sources */,
 				4EE9D7422E9EE3EF0035C73D /* IssueDetailLiveRepository.swift in Sources */,
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
