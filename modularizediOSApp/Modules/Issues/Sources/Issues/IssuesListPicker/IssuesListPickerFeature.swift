@@ -12,7 +12,6 @@ import Foundation
 @Reducer
 public struct IssuesListPickerFeature: Sendable {
     @Dependency(\.issuesListRepository) var issuesListRepository
-    @Dependency(\.dismiss) var dismiss
     
     @ObservableState
     public struct State: Equatable {
@@ -82,18 +81,14 @@ public struct IssuesListPickerFeature: Sendable {
                 return .none
                 
             case let .issueSelected(issue):
-                // Mark as selected and dismiss
+                // Mark as selected
+                // Navigation is handled by the coordinator observing this action
                 state.selectedIssueId = issue.id
-                return .run { _ in
-                    // Small delay to show the selection animation
-                    try? await Task.sleep(for: .milliseconds(150))
-                    await dismiss()
-                }
+                return .none
                 
             case .cancelTapped:
-                return .run { _ in
-                    await dismiss()
-                }
+                // Navigation is handled by the coordinator observing this action
+                return .none
                 
             case .destination:
                 return .none

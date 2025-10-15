@@ -12,15 +12,13 @@ import SwiftUI
 
 /// Navigation controller for the Assets module.
 /// Handles navigation logic and exposes async methods for result-returning navigation.
-/// Conforms to AssetsNavigationControllerProtocol defined in CoreInterfaces.
 final class AssetsNavigationController: @unchecked Sendable, AssetsNavigationControllerProtocol {
     private let path: Binding<NavigationPath>
     private let navigation: AssetsNavigation
     private let resultBus: NavigationResultBus
     private var cancellables = Set<AnyCancellable>()
     
-    // Continuation for async issue picker
-    private var issuePickerContinuation: CheckedContinuation<IssueUIModel?, Never>?
+    private let issuePickerManager = NavigationContinuationManager<IssueUIModel>()
     
     init(
         path: Binding<NavigationPath>,
@@ -60,12 +58,17 @@ final class AssetsNavigationController: @unchecked Sendable, AssetsNavigationCon
     }
     
     private func handleResult(_ result: NavigationResultBus.Result) {
+        // Check if path was popped by Back button
+        issuePickerManager.checkPathState(currentCount: path.wrappedValue.count)
+        
         switch result {
         case .issueSelected(let issue):
-            // Resume continuation if waiting for issue
-            issuePickerContinuation?.resume(returning: issue)
-            issuePickerContinuation = nil
-            path.wrappedValue.removeLast()
+            if let issue = issue {
+                issuePickerManager.complete(with: issue, path: path)
+            } else {
+                // Cancelled - simulate a pop to trigger cleanup
+                issuePickerManager.checkPathState(currentCount: path.wrappedValue.count - 1)
+            }
         default:
             break
         }
@@ -76,10 +79,10 @@ final class AssetsNavigationController: @unchecked Sendable, AssetsNavigationCon
     /// Navigate to issue picker and await selected issue.
     /// Returns the selected issue or nil if cancelled.
     func navigateToIssuesPicker() async -> IssueUIModel? {
-        return await withCheckedContinuation { continuation in
-            issuePickerContinuation = continuation
-            path.wrappedValue.append(Destination.issuesListPicker)
-        }
+        return await issuePickerManager.navigate(
+            path: path,
+            append: Destination.issuesListPicker
+        )
     }
 }
 
