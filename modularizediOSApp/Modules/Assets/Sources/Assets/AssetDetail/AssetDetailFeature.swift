@@ -12,6 +12,7 @@ import Foundation
 @Reducer
 public struct AssetDetailFeature : Sendable {
     @Dependency(\.assetDetailRepository) var assetDetailRepository
+    @Dependency(\.assetsNavigationController) var navigationController
     
     @ObservableState
     public struct State: Equatable {
@@ -74,11 +75,15 @@ public struct AssetDetailFeature : Sendable {
                 return .none
                 
             case .linkIssueTapped:
-                // Coordinator will handle navigation
-                return .none
+                // Return effect that navigates to issue picker and awaits result
+                return .run { send in
+                    if let issue = await navigationController.navigateToIssuesPicker() {
+                        await send(.issueSelected(issue))
+                    }
+                }
                 
             case let .issueSelected(issue):
-                // Store the selected issue (coordinator handles navigation back)
+                // Store the selected issue
                 state.linkedIssue = issue
                 return .none
             }

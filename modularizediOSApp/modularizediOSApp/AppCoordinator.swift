@@ -12,21 +12,10 @@ import Observation
 import SwiftUI
 
 /// Destination enum for type-safe navigation routing.
-/// Used with NavigationPath to navigate between screens.
+/// Must conform to Hashable since Destinations will be pushed into a NavigationPath to navigate between screens.
 enum Destination: Hashable {
     case assetDetail(assetId: String)
     case issuesListPicker
-    
-    static func == (lhs: Destination, rhs: Destination) -> Bool {
-        switch (lhs, rhs) {
-        case (.assetDetail(let id1), .assetDetail(let id2)):
-            return id1 == id2
-        case (.issuesListPicker, .issuesListPicker):
-            return true
-        default:
-            return false
-        }
-    }
     
     func hash(into hasher: inout Hasher) {
         switch self {
@@ -39,76 +28,34 @@ enum Destination: Hashable {
     }
 }
 
-/// AppCoordinator manages app-wide navigation using vanilla SwiftUI and Observation framework.
-/// It bridges TCA feature modules with Apple's NavigationStack using Combine publishers.
+/// AppCoordinator is a simple container for navigation state and controllers.
+/// All navigation logic has been moved to per-module navigation controllers.
 @Observable
 final class AppCoordinator {
     var path = NavigationPath()
-    var selectedIssueForAsset: IssueUIModel?
     
-    // Each module has its own navigation publisher
-    let assetsNavigation: AssetsNavigation
-    let issuesNavigation: IssuesNavigation
+    // Module navigation publishers (for features to send actions)
+    let assetsNavigation = AssetsNavigation()
+    let issuesNavigation = IssuesNavigation()
     
-    private var cancellables = Set<AnyCancellable>()
+    // Navigation controllers (handle navigation logic)
+    private(set) var assetsNavigationController: AssetsNavigationController?
+    private(set) var issuesNavigationController: IssuesNavigationController?
     
-    init(
-        assetsNavigation: AssetsNavigation = AssetsNavigation(),
-        issuesNavigation: IssuesNavigation = IssuesNavigation()
-    ) {
-        self.assetsNavigation = assetsNavigation
-        self.issuesNavigation = issuesNavigation
-        setupNavigationSubscriptions()
-    }
+    init() {}
     
-    private func setupNavigationSubscriptions() {
-        // Subscribe to Assets module navigation - single publisher for all actions
-        assetsNavigation.publisher
-            .sink { [weak self] action in
-                self?.handleAssetsAction(action)
-            }
-            .store(in: &cancellables)
+    /// Initialize navigation controllers with path binding.
+    /// Must be called after the view has access to the path binding.
+    func setupControllers(pathBinding: Binding<NavigationPath>) {
+        issuesNavigationController = IssuesNavigationController(
+            path: pathBinding,
+            navigation: issuesNavigation
+        )
         
-        // Subscribe to Issues module navigation - single publisher for all actions
-        issuesNavigation.publisher
-            .sink { [weak self] action in
-                self?.handleIssuesAction(action)
-            }
-            .store(in: &cancellables)
-    }
-    
-    // MARK: - Action Handlers
-    
-    private func handleAssetsAction(_ action: AssetsNavigation.Action) {
-        switch action {
-        case .assetTapped(let id):
-            navigateToAssetDetail(assetId: id)
-        case .linkIssueTapped:
-            navigateToIssuesPicker()
-        }
-    }
-    
-    private func handleIssuesAction(_ action: IssuesNavigation.Action) {
-        switch action {
-        case .issueSelected(let issue):
-            handleIssueSelected(issue)
-        case .cancelTapped:
-            path.removeLast()
-        }
-    }
-    
-    // MARK: - Navigation Methods
-    
-    func navigateToAssetDetail(assetId: String) {
-        path.append(Destination.assetDetail(assetId: assetId))
-    }
-    
-    func navigateToIssuesPicker() {
-        path.append(Destination.issuesListPicker)
-    }
-    
-    func handleIssueSelected(_ issue: IssueUIModel) {
-        selectedIssueForAsset = issue
-        path.removeLast() // Pop back to asset detail
+        assetsNavigationController = AssetsNavigationController(
+            path: pathBinding,
+            navigation: assetsNavigation,
+            issuesNavigation: issuesNavigation
+        )
     }
 }

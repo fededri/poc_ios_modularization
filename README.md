@@ -84,8 +84,10 @@ The AppCoordinator uses **vanilla SwiftUI with the Observation framework**, remo
 
 1. **@Observable coordinator** - Uses Apple's Observation framework (iOS 17+)
 2. **NavigationPath** - Apple's type-erased navigation stack
-3. **Combine publishers** - Module-specific navigation publishers bridge TCA features to coordinator
-4. **Action observers** - Intercept TCA actions and publish to Combine without modifying feature modules
+3. **Per-module navigation controllers** - Each module has its own controller that handles navigation logic
+4. **Combine publishers** - Module-specific navigation publishers bridge TCA features to controllers
+5. **Async/await navigation** - Result-returning navigation (pickers, scanners) uses async methods
+6. **Action observers** - Intercept TCA actions and publish to Combine without modifying feature modules
 
 ### Data Flow with KMP
 
@@ -463,9 +465,119 @@ final class IssuesNavigation {
 
 **Scalability:** Adding 30 new navigation events to a module only requires adding cases to the Action enum - the coordinator still subscribes to just **one publisher per module**.
 
-### Coordinator Manages Cross-Module Navigation
+### Navigation Controllers with Async Results
 
-The coordinator uses vanilla SwiftUI and Observation framework, subscribing to each module's navigation publisher:
+Each module has its own navigation controller that subscribes to Combine publishers and handles navigation logic. For result-returning navigation (pickers, scanners), controllers expose async methods:
+
+```swift
+// modularizediOSApp/Assets/AssetsNavigationController.swift
+import Assets
+import Combine
+import CoreInterfaces
+import SwiftUI
+
+final class AssetsNavigationController: AssetsNavigationControllerProtocol {
+    private let path: Binding<NavigationPath>
+    private var issuePickerContinuation: CheckedContinuation<IssueUIModel?, Never>?
+    
+    init(path: Binding<NavigationPath>, 
+         navigation: AssetsNavigation,
+         issuesNavigation: IssuesNavigation) {
+        // Subscribe to module's own actions
+        navigation.publisher.sink { self?.handle($0) }
+        
+        // Subscribe to results from other modules (e.g., Issues picker)
+        issuesNavigation.publisher.sink { self?.handleIssuesAction($0) }
+    }
+    
+    private func handleIssuesAction(_ action: IssuesNavigation.Action) {
+        switch action {
+        case .issueSelected(let issue):
+            issuePickerContinuation?.resume(returning: issue)
+            issuePickerContinuation = nil
+            path.wrappedValue.removeLast()
+        case .cancelTapped:
+            issuePickerContinuation?.resume(returning: nil)
+            issuePickerContinuation = nil
+            path.wrappedValue.removeLast()
+        }
+    }
+    
+    // Async method for result-returning navigation
+    func navigateToIssuesPicker() async -> IssueUIModel? {
+        return await withCheckedContinuation { continuation in
+            issuePickerContinuation = continuation
+            path.wrappedValue.append(Destination.issuesListPicker)
+        }
+    }
+}
+```
+
+**Benefits of Async Navigation:**
+- ✅ Results are tied to the navigation call - no orphaned listeners
+- ✅ Type-safe - compiler enforces result handling
+- ✅ No race conditions - continuation ensures one-to-one mapping
+- ✅ Clean API - feels like a synchronous call but non-blocking
+
+### Feature Uses Async Navigation via TCA Effects
+
+Features call async navigation methods using TCA's `.run` effect. The protocol and dependency key are defined in `CoreInterfaces` so features can access them:
+
+```swift
+// Modules/CoreInterfaces/Sources/CoreInterfaces/Navigation/AssetsNavigationControllerDependency.swift
+public protocol AssetsNavigationControllerProtocol {
+    func navigateToIssuesPicker() async -> IssueUIModel?
+}
+
+extension DependencyValues {
+    public var assetsNavigationController: AssetsNavigationControllerProtocol {
+        get { self[AssetsNavigationControllerKey.self] }
+        set { self[AssetsNavigationControllerKey.self] = newValue }
+    }
+}
+```
+
+```swift
+// Modules/Assets/Sources/Assets/AssetDetail/AssetDetailFeature.swift
+@Reducer
+public struct AssetDetailFeature {
+    @Dependency(\.assetDetailRepository) var repository
+    @Dependency(\.assetsNavigationController) var navigationController
+    
+    public var body: some ReducerOf<Self> {
+        Reduce { state, action in
+            switch action {
+            case .linkIssueTapped:
+                // Return effect that awaits navigation result
+                return .run { send in
+                    if let issue = await navigationController.navigateToIssuesPicker() {
+                        await send(.issueSelected(issue))
+                    }
+                }
+                
+            case .issueSelected(let issue):
+                state.linkedIssue = issue
+                return .none
+            }
+        }
+    }
+}
+```
+
+**Module Structure:**
+- `CoreInterfaces` → Defines protocol & TCA dependency key (shared)
+- `Assets` → Uses the dependency (feature module)
+- `App Target` → Provides concrete implementation
+
+**Why .run instead of Task:**
+- ✅ TCA idiomatic - proper effect testing support
+- ✅ Automatic cancellation when feature is torn down
+- ✅ Testable - can be mocked in TCA's TestStore
+- ✅ Effect lifecycle management
+
+### Coordinator is a Simple Container
+
+The coordinator is now a simple container with **zero navigation logic**. All logic has moved to per-module navigation controllers:
 
 ```swift
 // modularizediOSApp/AppCoordinator.swift
@@ -482,73 +594,34 @@ enum Destination: Hashable {
 @Observable
 final class AppCoordinator {
     var path = NavigationPath()
-    var selectedIssueForAsset: IssueUIModel?
     
-    // Each module has its own navigation publisher
-    let assetsNavigation: AssetsNavigation
-    let issuesNavigation: IssuesNavigation
+    // Module navigation publishers (for features to send actions)
+    let assetsNavigation = AssetsNavigation()
+    let issuesNavigation = IssuesNavigation()
     
-    private var cancellables = Set<AnyCancellable>()
+    // Navigation controllers (handle navigation logic)
+    private(set) var assetsNavigationController: AssetsNavigationController?
+    private(set) var issuesNavigationController: IssuesNavigationController?
     
-    init(
-        assetsNavigation: AssetsNavigation = AssetsNavigation(),
-        issuesNavigation: IssuesNavigation = IssuesNavigation()
-    ) {
-        self.assetsNavigation = assetsNavigation
-        self.issuesNavigation = issuesNavigation
-        setupNavigationSubscriptions()
-    }
+    init() {}
     
-    private func setupNavigationSubscriptions() {
-        // Subscribe to Assets module - single publisher for all actions
-        assetsNavigation.publisher
-            .sink { [weak self] action in
-                self?.handleAssetsAction(action)
-            }
-            .store(in: &cancellables)
+    /// Initialize navigation controllers with path binding
+    func setupControllers(pathBinding: Binding<NavigationPath>) {
+        issuesNavigationController = IssuesNavigationController(
+            path: pathBinding,
+            navigation: issuesNavigation
+        )
         
-        // Subscribe to Issues module - single publisher for all actions
-        issuesNavigation.publisher
-            .sink { [weak self] action in
-                self?.handleIssuesAction(action)
-            }
-            .store(in: &cancellables)
-    }
-    
-    // MARK: - Action Handlers
-    
-    private func handleAssetsAction(_ action: AssetsNavigation.Action) {
-        switch action {
-        case .assetTapped(let id):
-            navigateToAssetDetail(assetId: id)
-        case .linkIssueTapped:
-            navigateToIssuesPicker()
-        }
-    }
-    
-    private func handleIssuesAction(_ action: IssuesNavigation.Action) {
-        switch action {
-        case .issueSelected(let issue):
-            handleIssueSelected(issue)
-        case .cancelTapped:
-            path.removeLast()
-        }
-    }
-    
-    func navigateToAssetDetail(assetId: String) {
-        path.append(Destination.assetDetail(assetId: assetId))
-    }
-    
-    func navigateToIssuesPicker() {
-        path.append(Destination.issuesListPicker)
-    }
-    
-    func handleIssueSelected(_ issue: IssueUIModel) {
-        selectedIssueForAsset = issue
-        path.removeLast()
+        assetsNavigationController = AssetsNavigationController(
+            path: pathBinding,
+            navigation: assetsNavigation,
+            issuesNavigation: issuesNavigation
+        )
     }
 }
 ```
+
+**Key Change:** Coordinator has **no** handleAction methods, **no** navigation methods, **no** Combine subscriptions. It's purely a container.
 
 ### Bridging TCA to Combine
 

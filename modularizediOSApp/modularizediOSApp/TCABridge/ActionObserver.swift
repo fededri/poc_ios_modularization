@@ -2,7 +2,7 @@
 //  ActionObserver.swift
 //  modularizediOSApp
 //
-//  Created by Cursor on 15/10/25.
+//  Created by Federico Torres on 15/10/25.
 //
 
 import ComposableArchitecture
