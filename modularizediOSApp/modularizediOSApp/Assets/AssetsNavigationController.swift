@@ -18,7 +18,8 @@ final class AssetsNavigationController: @unchecked Sendable, AssetsNavigationCon
     private let resultBus: NavigationResultBus
     private var cancellables = Set<AnyCancellable>()
     
-    private let issuePickerManager = NavigationContinuationManager<IssueUIModel>()
+    // Single manager for all async navigation operations
+    private let navigationManager = NavigationContinuationManager()
     
     init(
         path: Binding<NavigationPath>,
@@ -32,14 +33,13 @@ final class AssetsNavigationController: @unchecked Sendable, AssetsNavigationCon
     }
     
     private func setupSubscriptions() {
-        // Subscribe to own navigation actions
         navigation.publisher
             .sink { [weak self] action in
                 self?.handle(action)
             }
             .store(in: &cancellables)
         
-        // Subscribe to results from result bus (not from IssuesNavigation!)
+        // Subscribe to results
         resultBus.results
             .sink { [weak self] result in
                 self?.handleResult(result)
@@ -52,22 +52,27 @@ final class AssetsNavigationController: @unchecked Sendable, AssetsNavigationCon
         case .assetTapped(let id):
             path.wrappedValue.append(Destination.assetDetail(assetId: id))
         case .linkIssueTapped:
-            // Deprecated - use async navigateToIssuesPicker() instead
             break
         }
     }
     
     private func handleResult(_ result: NavigationResultBus.Result) {
+        // Early exit: only process if we have active navigation
+        guard navigationManager.hasActiveNavigation else {
+            return
+        }
+        
         // Check if path was popped by Back button
-        issuePickerManager.checkPathState(currentCount: path.wrappedValue.count)
+        if navigationManager.checkPathState(currentCount: path.wrappedValue.count) {
+            return
+        }
         
         switch result {
         case .issueSelected(let issue):
             if let issue = issue {
-                issuePickerManager.complete(with: issue, path: path)
+                navigationManager.complete(with: issue, path: path)
             } else {
-                // Cancelled - simulate a pop to trigger cleanup
-                issuePickerManager.checkPathState(currentCount: path.wrappedValue.count - 1)
+                navigationManager.cancel(path: path)
             }
         default:
             break
@@ -79,9 +84,10 @@ final class AssetsNavigationController: @unchecked Sendable, AssetsNavigationCon
     /// Navigate to issue picker and await selected issue.
     /// Returns the selected issue or nil if cancelled.
     func navigateToIssuesPicker() async -> IssueUIModel? {
-        return await issuePickerManager.navigate(
+        return await navigationManager.navigate(
             path: path,
-            append: Destination.issuesListPicker
+            append: Destination.issuesListPicker,
+            resultType: IssueUIModel.self
         )
     }
 }
