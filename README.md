@@ -296,9 +296,9 @@ TCA actions are bridged to Combine via ActionObserver in the App target.
 
 ### Cons
 - Back button without result logic is a bit hacky.
+- Cross-module navigation can't be tested on SwiftUI Previews.
 - Navigation complexity (coordinator pattern, continuation management)
 - KMP abstraction layer boilerplate
-- Learning curve (TCA + Combine + Async/Await + Coordinator)
 
 ## Code Examples
 
