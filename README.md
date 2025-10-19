@@ -6,7 +6,9 @@ A proof-of-concept demonstrating modular iOS architecture with Kotlin Multiplatf
 
 - [Overview](#overview)
 - [Architecture](#architecture)
+  - [KMP Repository Injection Flow Diagram](#diagram-kmp-repository-injection-flow)
 - [Navigation Pattern](#navigation-pattern)
+  - [Async Navigation with Result Flow Diagram](#diagram-async-navigation-with-result-flow)
 - [Key Patterns](#key-patterns)
 - [Pros and Cons](#pros-and-cons)
 
@@ -22,7 +24,7 @@ Demonstrates modular iOS architecture with Kotlin Multiplatform for shared busin
 
 ### Critical Constraint
 
-**Only the App target can depend on KMP.** SPM modules use protocol abstractions; the App target provides KMP implementations.
+**Only the App target should depend on KMP.** SPM modules use protocol abstractions; the App target provides KMP implementations.
 
 ### Module Structure
 
@@ -39,6 +41,58 @@ Shared (KMP)          → Business Logic
 1. Modules define repository protocols
 2. App target implements using KMP
 3. TCA's `@Dependency` system injects implementations
+
+#### Diagram: KMP Repository Injection Architecture
+
+```mermaid
+graph TB
+    subgraph "Assets Module (SPM)"
+        Feature[AssetDetailFeature<br/>TCA Reducer]
+        Protocol[AssetsListRepository<br/>Protocol with closures]
+        DepKey[DependencyValues<br/>Extension]
+        
+        Feature -->|"@Dependency(\.assetsListRepository)"| DepKey
+        DepKey -->|defines| Protocol
+    end
+    
+    subgraph "TCA Dependency System"
+        Registry[Dependency Registry<br/>Resolves at runtime]
+    end
+    
+    subgraph "App Target"
+        LiveRepo[AssetListLiveRepository<br/>Swift Bridge Class]
+        DepImpl[DependencyKey<br/>Implementation]
+        
+        DepImpl -->|"static var liveValue"| LiveRepo
+        LiveRepo -->|imports & calls| KMP
+    end
+    
+    subgraph "Shared (KMP)"
+        KMP[AssetRepository.kt<br/>Kotlin Implementation]
+    end
+    
+    Protocol -.->|"registered in"| Registry
+    DepImpl -.->|"provides implementation to"| Registry
+    Registry -->|"injects at runtime"| Feature
+    
+    style Protocol fill:#e1f5ff
+    style Feature fill:#e1f5ff
+    style DepKey fill:#e1f5ff
+    style LiveRepo fill:#fff4e1
+    style DepImpl fill:#fff4e1
+    style KMP fill:#f0e1ff
+    style Registry fill:#e8f5e8
+    
+    classDef noKMP fill:#e1f5ff
+    classDef hasKMP fill:#fff4e1
+    classDef kotlin fill:#f0e1ff
+    
+    Note1[" Module has NO direct<br/>dependency on KMP"]
+    Note2[" Only App Target<br/>depends on KMP"]
+    
+    Note1 -.-> Protocol
+    Note2 -.-> LiveRepo
+```
 
 ## Navigation Pattern
 
@@ -74,6 +128,80 @@ case .linkIssueTapped:
 ```
 
 The controller handles the navigation and waits for the result via the result bus.
+
+#### Diagram: Async Navigation with Result Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant AssetDetail as AssetDetailFeature<br/>(TCA Reducer)
+    participant TCARuntime as TCA Runtime
+    participant NavController as AssetsNavigationController
+    participant Manager as NavigationContinuationManager
+    participant Path as NavigationPath<br/>(Coordinator)
+    participant IssuesPicker as IssuesListPickerFeature<br/>(TCA Reducer)
+    participant ResultBus as NavigationResultBus
+    
+    User->>AssetDetail: Taps "Link Issue"
+    AssetDetail->>AssetDetail: case .linkIssueTapped
+    
+    Note over AssetDetail: Returns .run { send in ... } effect
+    AssetDetail->>TCARuntime: Return .run effect
+    
+    Note over TCARuntime,NavController: 1. TCA executes .run effect
+    TCARuntime->>NavController: await navigateToIssuesPicker()
+    NavController->>Manager: navigate(path, .issuesListPicker, IssueUIModel.self)
+    
+    Note over Manager,Path: 2. Setup continuation & navigate
+    Manager->>Manager: Store CheckedContinuation<br/>expectedPathCount = currentCount + 1
+    Manager->>Path: path.append(.issuesListPicker)
+    Note over TCARuntime: Effect suspends, awaiting result
+    
+    Note over Path,IssuesPicker: 3. SwiftUI renders picker
+    Path->>IssuesPicker: Render IssuesListPickerView
+    
+    User->>IssuesPicker: Selects an issue
+    IssuesPicker->>IssuesPicker: case .issueTapped(issue)
+    
+    Note over IssuesPicker,ResultBus: 4. Publish result to bus
+    IssuesPicker->>ResultBus: publish(.issueSelected(issue))
+    
+    Note over ResultBus,NavController: 5. Controller receives result
+    ResultBus->>NavController: Combine subscription fires<br/>handleResult(.issueSelected)
+    
+    Note over NavController,Manager: 6. Validate & complete
+    NavController->>Manager: checkPathState(currentCount)
+    Manager-->>NavController: false (no back button)
+    NavController->>Manager: complete(with: issue, path)
+    
+    Note over Manager,Path: 7. Resume continuation & pop
+    Manager->>Manager: Resume continuation<br/>with issue
+    Manager->>Path: path.removeLast()
+    Manager-->>NavController: Return issue
+    
+    Note over NavController,TCARuntime: 8. Return to effect
+    NavController-->>TCARuntime: Return IssueUIModel
+    
+    Note over TCARuntime,AssetDetail: 9. Effect sends action
+    TCARuntime->>AssetDetail: send(.issueSelected(issue))
+    AssetDetail->>AssetDetail: case .issueSelected(issue)
+    AssetDetail->>AssetDetail: state.linkedIssue = issue
+    
+    Note over Path: SwiftUI pops to AssetDetail
+    
+    rect rgb(255, 240, 240)
+        Note over User,Manager: Alternative: Back Button Pressed
+        User->>Path: Press back button
+        Path->>Path: Path count decreases
+        NavController->>Manager: checkPathState(currentCount)
+        Manager->>Manager: Detect count < expected
+        Manager->>Manager: Cancel continuation<br/>with nil
+        Manager-->>NavController: Return nil
+        NavController-->>TCARuntime: Return nil from effect
+        Note over TCARuntime: if let issue = nil<br/>condition fails
+        Note over AssetDetail: No action sent,<br/>state unchanged
+    end
+```
 
 ## Key Patterns
 
@@ -164,9 +292,10 @@ TCA actions are bridged to Combine via ActionObserver in the App target.
 - SwiftUI Previews without KMP
 - Testable in isolation
 - CI/CD benefits (cached builds)
+- No strict dependency on TCA at the Coordinator level
 
 ### Cons
-- Initial setup overhead
+- Back button without result logic is a bit hacky.
 - Navigation complexity (coordinator pattern, continuation management)
 - KMP abstraction layer boilerplate
 - Learning curve (TCA + Combine + Async/Await + Coordinator)
