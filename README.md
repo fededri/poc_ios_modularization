@@ -12,6 +12,28 @@ This POC demonstrates three different solutions to cross-module navigation while
 - Testability and SwiftUI Previews without KMP
 - TCA for state management
 
+## Common Architecture Elements
+
+All branches share these core principles:
+
+### Module Structure
+```
+CoreInterfaces (SPM)  → Protocols & Models
+Assets Module (SPM)   → Asset Features
+Issues Module (SPM)   → Issue Features
+App Target            → Composition & KMP Bridge
+Shared (KMP)          → Business Logic
+```
+
+### Critical Constraint
+**Only the App target can depend on KMP.** SPM modules use protocol abstractions; the App target provides KMP implementations via TCA's `@Dependency` system.
+
+### Dependency Injection
+1. Modules define repository protocols
+2. App target implements using KMP
+3. TCA's `@Dependency` injects implementations
+4. Mock implementations for previews/tests
+
 ## Branch Overview
 
 ### 🎯 [centralized_vanilla_swift](../../tree/centralized_vanilla_swift) (Recommended)
@@ -106,73 +128,3 @@ This POC demonstrates three different solutions to cross-module navigation while
 | **Coupling** | Medium (bus + controllers) | High (knows all features) | Low |
 | **Testability** | Good (mock controllers) | Excellent (TestStore) | Good (mock repos) |
 
-## Getting Started
-
-1. **Clone the repository**
-   ```bash
-   git clone <repo-url>
-   cd poc_ios_modularization
-   ```
-
-2. **Choose a branch to explore**
-   ```bash
-   # Recommended approach
-   git checkout centralized_vanilla_swift
-   
-   # TCA Reducer approach
-   git checkout centralized_solution
-   
-   # Modal approach
-   git checkout modal_solution
-   ```
-
-3. **Open in Xcode**
-   ```bash
-   open modularizediOSApp/ModularizediOSApp.xcworkspace
-   ```
-
-4. **Read the branch-specific README** for detailed implementation guide.
-
-## Common Architecture Elements
-
-All branches share these core principles:
-
-### Module Structure
-```
-CoreInterfaces (SPM)  → Protocols & Models
-Assets Module (SPM)   → Asset Features
-Issues Module (SPM)   → Issue Features
-App Target            → Composition & KMP Bridge
-Shared (KMP)          → Business Logic
-```
-
-### Critical Constraint
-**Only the App target can depend on KMP.** SPM modules use protocol abstractions; the App target provides KMP implementations via TCA's `@Dependency` system.
-
-### Dependency Injection
-1. Modules define repository protocols
-2. App target implements using KMP
-3. TCA's `@Dependency` injects implementations
-4. Mock implementations for previews/tests
-
-## Recommendation
-
-For production apps, we recommend **`centralized_vanilla_swift`** because:
-- Prevents memory leaks with lifecycle-aware continuations
-- Scales gracefully to any number of navigation types (O(1) performance)
-- Uses standard Apple frameworks (future-proof)
-- Supports complex navigation flows with async/await
-
-Choose `centralized_solution` if you want pure TCA and can accept coordinator coupling.
-
-Choose `modal_solution` if your app's UX allows for modal-based cross-module navigation.
-
-## Resources
-
-- [The Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture)
-- [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html)
-- [Swift Package Manager](https://www.swift.org/package-manager/)
-
-## License
-
-MIT License - see LICENSE file for details.
