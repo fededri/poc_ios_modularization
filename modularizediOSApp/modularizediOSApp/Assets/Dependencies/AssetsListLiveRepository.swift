@@ -52,7 +52,7 @@ public struct AssetListLiveRepository: AssetsListRepositoryProtocol, @unchecked 
 }
 
 // MARK: - Dependency Override
-extension Assets.AssetsListRepository: DependencyKey {
+extension Assets.AssetsListRepository: @retroactive DependencyKey {
     public static var liveValue: Assets.AssetsListRepository {
         return Self(
             getAllAssets: {

@@ -188,15 +188,16 @@ extension DependencyValues {
 }
 ```
 
-### KMP Implementation in App Target
+### Injection provided in App Target
 
 ```swift
 extension Assets.AssetsListRepository: @retroactive DependencyKey {
     public static var liveValue: Assets.AssetsListRepository {
+        // Swift live repository that bridges Swift code to/from Kotlin
+        let liveRepo = AssetListLiveRepository()
         return Self(
             getAllAssets: {
-                let kmpRepo = AssetListLiveRepository() // From KMP
-                return kmpRepo.getAllAssets().map { /* Map to UIModel */ }
+                return kmpRepo.getAllAssets()
             }
         )
     }
