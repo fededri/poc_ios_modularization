@@ -1,295 +1,461 @@
 # iOS Modularization POC - Modal Solution
 
 > **Branch:** `modal_solution`  
-> **Approach:** Decentralized navigation with modal presentations for cross-module flows
+> **Approach:** Environment-injected NavigationViewFactory for cross-module modal navigation
 
-This branch demonstrates modular iOS architecture with complete module independence, using sheet modals for cross-module navigation.
+This branch demonstrates modular iOS architecture with complete module independence, using a NavigationViewFactory pattern for cross-module navigation via modals.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+  - [NavigationViewFactory Pattern Diagram](#diagram-navigationviewfactory-pattern)
+- [Navigation Flow](#navigation-flow)
+  - [Cross-Module Navigation Sequence](#diagram-cross-module-navigation-flow)
+- [Key Patterns](#key-patterns)
+- [Pros and Cons](#pros-and-cons)
+- [Code Examples](#code-examples)
 
 ## Overview
 
-Decentralized solution where:
+A lightweight solution where:
 - Each module manages its own internal navigation
-- Cross-module navigation uses sheet modals (`@Presents`)
-- No central coordinator needed
-- Modules are completely independent
+- Cross-module navigation uses `NavigationViewFactory` protocol
+- Factory is injected via SwiftUI environment
+- Modules remain completely independent
+- Results flow back through closures
 
 ## Key Features
 
-- **Module Independence:** No module-to-module dependencies
+- **Module Independence:** No dependencies between feature modules
+- **Environment Injection:** Factory provided through SwiftUI environment
 - **Modal Navigation:** Cross-module flows shown as sheets
-- **TCA @Presents:** Built-in TCA pattern for modal destinations
-- **Simple:** No coordinator coupling or complex navigation logic
-- **Scalable:** Easy to add new modules without coordination
+- **Type-Safe:** Protocol-based destinations and results
+- **Simple:** No coordinator coupling, navigation controllers, or buses
+- **Scalable:** Easy to add new modules by updating the factory
 
 ## Architecture
 
 ### Module Structure
 
 ```
-CoreInterfaces (SPM)  → Protocols & Models
+CoreInterfaces (SPM)  → Protocols, Models, NavigationViewFactory protocol
 Assets Module (SPM)   → Self-contained Asset Features
 Issues Module (SPM)   → Self-contained Issue Features
-App Target            → Composition Root + KMP Bridge
+App Target            → AppNavigationViewFactory implementation + KMP Bridge
 Shared (KMP)          → Business Logic
 ```
 
-### Navigation Pattern
+### Critical Constraint
+
+**Only the App target should depend on other modules and KMP.** SPM modules:
+- Define protocols for repositories (injected via TCA Dependencies)
+- Use `NavigationViewFactory` from CoreInterfaces (no concrete implementation)
+- Never import other feature modules
+
+#### Diagram: NavigationViewFactory Pattern
+
+```mermaid
+graph TB
+    subgraph "CoreInterfaces (SPM)"
+        Protocol[NavigationViewFactory<br/>Protocol]
+        Destination[NavigationDestination<br/>Enum]
+        Result[NavigationResult<br/>Protocol]
+        IssueModel[IssueUIModel<br/>: NavigationResult]
+        
+        Protocol -->|defines| Destination
+        Protocol -->|returns| Result
+        IssueModel -.->|conforms to| Result
+    end
+    
+    subgraph "Assets Module (SPM)"
+        AssetView[AssetDetailView]
+        Environment[Environment Value<br/>navigationViewFactory]
+        
+        AssetView -->|reads from| Environment
+        AssetView -->|calls| Protocol
+    end
+    
+    subgraph "Issues Module (SPM)"
+        IssuesPicker[IssuesListPickerView]
+        Provider[IssuesListPickerProvider<br/>Wraps TCA Store]
+        
+        Provider -->|creates| IssuesPicker
+        IssuesPicker -->|returns| IssueModel
+    end
+    
+    subgraph "App Target"
+        Factory[AppNavigationViewFactory<br/>: NavigationViewFactory]
+        Injection[.environment<br/>modifier]
+        
+        Factory -->|implements| Protocol
+        Factory -->|imports| Provider
+        Factory -->|creates| IssuesPicker
+        Injection -->|provides| Environment
+    end
+    
+    Environment -.->|resolved at runtime| Factory
+    
+    style Protocol fill:#e1f5ff
+    style Destination fill:#e1f5ff
+    style Result fill:#e1f5ff
+    style IssueModel fill:#e1f5ff
+    style AssetView fill:#e1f5ff
+    style Environment fill:#e1f5ff
+    style IssuesPicker fill:#ffe1f5
+    style Provider fill:#ffe1f5
+    style Factory fill:#fff4e1
+    style Injection fill:#fff4e1
+    
+    Note1[" Modules never import<br/>each other"]
+    Note2[" Only App Target knows<br/>all modules"]
+    
+    Note1 -.-> AssetView
+    Note2 -.-> Factory
+```
+
+**Key Points:**
+- CoreInterfaces defines the protocol contract
+- Modules only know about the protocol, not implementations
+- App Target implements the factory and knows all modules
+- Factory is injected via SwiftUI environment
+
+## Navigation Flow
+
+### How Cross-Module Navigation Works
+
+1. **Module requests navigation** by reading factory from environment
+2. **Factory creates view** from the destination module
+3. **Result flows back** through closure callback
+4. **Module handles result** and dismisses modal
+
+#### Diagram: Cross-Module Navigation Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant AssetView as AssetDetailView<br/>(Assets Module)
+    participant Reducer as AssetDetailFeature<br/>(TCA Reducer)
+    participant Env as SwiftUI Environment
+    participant Factory as AppNavigationViewFactory<br/>(App Target)
+    participant Provider as IssuesListPickerProvider<br/>(Issues Module)
+    participant IssuesPicker as IssuesListPickerView<br/>(Issues Module)
+    
+    Note over User,AssetView: 1. User triggers cross-module navigation
+    User->>AssetView: Taps "Link Issue"
+    AssetView->>Reducer: send(.linkIssueTapped)
+    Reducer->>Reducer: state.showIssuesListPicker = true
+    
+    Note over AssetView,Env: 2. View reads factory from environment
+    AssetView->>Env: @Environment(\.navigationViewFactory)
+    AssetView->>AssetView: .sheet(isPresented: $showPicker)
+    
+    Note over AssetView,Factory: 3. View calls factory to create destination
+    AssetView->>Factory: createView(for: .issuesListPicker,<br/>onResult: { issue in ... })
+    
+    Note over Factory,Provider: 4. Factory creates provider with callback
+    Factory->>Provider: IssuesListPickerProvider(onResult: closure)
+    Provider->>IssuesPicker: Creates TCA Store + View
+    Factory-->>AssetView: Returns AnyView(NavigationStack { view })
+    
+    Note over AssetView: 5. SwiftUI presents modal
+    AssetView->>IssuesPicker: Present as sheet
+    
+    Note over User,IssuesPicker: 6. User selects result
+    User->>IssuesPicker: Selects issue
+    IssuesPicker->>Provider: Calls onResult callback
+    
+    Note over Provider,Factory: 7. Result flows through factory closure
+    Provider->>Factory: onResult(issue)
+    Factory->>AssetView: Closure: { issue in<br/>store.send(.issueSelected(issue)) }
+    
+    Note over AssetView,Reducer: 8. View sends result to reducer
+    AssetView->>Reducer: send(.issueSelected(issue))
+    Reducer->>Reducer: state.linkedIssue = issue<br/>state.showIssuesListPicker = false
+    
+    Note over AssetView: 9. Modal dismisses
+    AssetView->>AssetView: SwiftUI dismisses sheet
+    
+    rect rgb(230, 230, 250)
+        Note over AssetView,IssuesPicker: Key Benefit: No module coupling<br/>Assets Module never imports Issues Module
+    end
+```
+
+### Internal Module Navigation
+
+Within a module, standard TCA navigation is used:
+
+```
+Assets List → (Push) Asset Detail  [Within Assets Module]
+Issues Picker → (Push) Issue Detail [Within Issues Module]
+```
+
+Internal navigation uses `@Presents` with `.navigationDestination` for push navigation.
+
+## Key Patterns
+
+### 1. NavigationViewFactory Protocol
+
+Defined in CoreInterfaces, implemented in App Target:
 
 ```swift
-// In Asset Detail Feature
-@Reducer
-public struct AssetDetailFeature {
-    @ObservableState
-    public struct State {
-        @Presents var destination: Destination.State?
-    }
-    
-    public enum Action {
-        case linkIssueTapped
-        case destination(PresentationAction<Destination.Action>)
-    }
-    
-    @Reducer(state: .equatable)
-    public enum Destination {
-        case issuesListPicker(IssuesListPickerFeature)
-    }
-    
-    public var body: some ReducerOf<Self> {
-        Reduce { state, action in
-            switch action {
-            case .linkIssueTapped:
-                // Show modal
-                state.destination = .issuesListPicker(
-                    IssuesListPickerFeature.State()
-                )
-                return .none
-                
-            case .destination(.presented(.issuesListPicker(.issueSelected(let issue)))):
-                // Handle result
-                state.linkedIssue = issue
-                state.destination = nil  // Dismiss modal
-                return .none
-                
-            default:
-                return .none
-            }
-        }
-        .ifLet(\.$destination, action: \.destination)
+// In CoreInterfaces
+public protocol NavigationViewFactory: Equatable, Sendable {
+    func createView(for destination: NavigationDestination) -> AnyView
+    func createView(for destination: NavigationDestination, 
+                   onResult: @escaping (any NavigationResult) -> Void) -> AnyView
+}
+
+public extension EnvironmentValues {
+    var navigationViewFactory: (any NavigationViewFactory)? {
+        get { self[NavigationViewFactoryKey.self] }
+        set { self[NavigationViewFactoryKey.self] = newValue }
     }
 }
 ```
 
-### View Layer
+### 2. Environment Injection
+
+App Target injects the factory at the root:
 
 ```swift
-AssetDetailView(store: store)
-    .sheet(item: $store.scope(state: \.destination?.issuesListPicker, 
-                              action: \.destination.issuesListPicker)) { store in
-        IssuesListPickerView(store: store)
+// In ContentView (App Target)
+struct ContentView: View {
+    private let navigationViewFactory = AppNavigationViewFactory()
+    
+    var body: some View {
+        assetsProvider.make()
+            .environment(\.navigationViewFactory, navigationViewFactory)
     }
+}
 ```
 
-## Navigation Flow
+### 3. Module Provider Pattern
 
+Each module exposes a Provider that accepts result callbacks:
+
+```swift
+// In Issues Module
+public struct IssuesListPickerProvider {
+    private let onResult: (IssueUIModel) -> Void
+    
+    public init(onResult: @escaping (IssueUIModel) -> Void) {
+        self.onResult = onResult
+    }
+    
+    public func make() -> some View {
+        IssuesListPickerView(
+            store: Store(initialState: IssuesListPickerFeature.State()) {
+                IssuesListPickerFeature()
+            },
+            onIssueSelected: { issue in
+                onResult(issue)
+            }
+        )
+    }
+}
 ```
-Asset Detail → (Modal) Issues Picker → Select Issue → Dismiss → Asset Detail
+
+### 4. NavigationResult Protocol
+
+Type-safe result handling:
+
+```swift
+// In CoreInterfaces
+public protocol NavigationResult: Codable {
+    static var resultType: String { get }
+}
+
+// Models conform to NavigationResult
+public struct IssueUIModel: NavigationResult {
+    public static let resultType: String = "IssueUIModel"
+    // ... properties
+}
 ```
 
-**Key Point:** Cross-module navigation always presents modally, never pushes to a shared navigation stack.
+## Pros and Cons
 
-## Pros
+### Pros
 
-✅ **Complete Module Independence:** No dependencies between feature modules  
-✅ **Easy to Scale:** Adding modules doesn't require coordinator changes  
-✅ **Simple Architecture:** No complex navigation coordination  
-✅ **TCA Native:** Uses built-in `@Presents` pattern  
-✅ **Clear Boundaries:** Modal presentation makes transitions obvious  
-✅ **Testable:** Each module tested in complete isolation  
-✅ **Parallel Development:** Teams can work independently  
+✅ **Complete Module Independence:** Modules never import each other  
+✅ **Environment-Based:** Leverages SwiftUI's native dependency injection  
+✅ **Type-Safe:** Protocol-based approach with compile-time safety  
+✅ **Simple Architecture:** No coordinators, buses, or continuation managers  
+✅ **Testable:** Modules tested in isolation with mock factories  
+✅ **Scalable:** Adding modules only requires factory updates  
+✅ **Clear Contracts:** NavigationDestination and NavigationResult define boundaries  
+✅ **No KMP in Modules:** SPM modules remain KMP-free  
 
-## Cons
+### Cons
 
-❌ **Modal-Only Cross-Module:** Cannot push to shared navigation stack  
-❌ **UX Limitation:** No drilldown navigation between modules  
-❌ **Back Button:** Only works within modules, not across modals  
-❌ **Navigation Stack:** Each module has separate stack  
-❌ **Result Handling:** Callback pattern instead of async/await  
-❌ **Modal Fatigue:** Many modals can feel disconnected  
+❌ **Modal-Only Cross-Module:** Cannot push cross-module screens to shared stack  
+❌ **Factory Knows All:** App Target must import all modules  
+❌ **Closure-Based Results:** Not as elegant as async/await  
+❌ **Type Erasure:** Uses `AnyView` for flexibility  
+❌ **Manual Factory Updates:** Adding destinations requires factory changes  
+❌ **UX Limitation:** No seamless navigation hierarchies across modules  
+
+## Code Examples
+
+### 1. Using the Factory in a Module
+
+```swift
+// AssetDetailView.swift (Assets Module)
+import CoreInterfaces
+import SwiftUI
+
+struct AssetDetailView: View {
+    @Environment(\.navigationViewFactory) var navigationViewFactory
+    @Bindable var store: StoreOf<AssetDetailFeature>
+    
+    var body: some View {
+        VStack {
+            // ... content ...
+            Button("Link Issue") {
+                store.send(.linkIssueTapped)
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { store.showIssuesListPicker },
+            set: { if !$0 { store.send(.dismissIssuesPicker) } }
+        )) {
+            if let navigationViewFactory = navigationViewFactory {
+                navigationViewFactory.createView(for: .issuesListPicker) { result in
+                    if let issueResult = result as? IssueUIModel {
+                        store.send(.issueSelected(issueResult))
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+**Key Points:**
+- Read factory from environment
+- Use `.sheet` for modal presentation
+- Factory creates the destination view
+- Result flows back through closure
+
+### 2. Factory Implementation
+
+```swift
+// NavigationViewFactory.swift (App Target)
+import CoreInterfaces
+import Issues
+
+class AppNavigationViewFactory: NavigationViewFactory {
+    func createView(for destination: NavigationDestination) -> AnyView {
+        return createView(for: destination, onResult: { _ in })
+    }
+    
+    func createView(
+        for destination: NavigationDestination, 
+        onResult: @escaping (any NavigationResult) -> Void
+    ) -> AnyView {
+        switch destination {
+        case .issuesListPicker:
+            let provider = IssuesListPickerProvider { issue in
+                onResult(issue)
+            }
+            return AnyView(
+                NavigationStack {
+                    provider.make()
+                }
+            )
+        case .assetsList, .issuesList: 
+            fatalError("not implemented")
+        }
+    }
+    
+    static func == (lhs: AppNavigationViewFactory, rhs: AppNavigationViewFactory) -> Bool {
+        return lhs === rhs
+    }
+}
+```
+
+**Key Points:**
+- Factory imports specific modules (Assets, Issues)
+- Creates provider with result callback
+- Wraps in NavigationStack for internal navigation
+- Returns type-erased AnyView
+
+### 3. TCA Reducer Handling Results
+
+```swift
+// AssetDetailFeature.swift (Assets Module)
+@Reducer
+struct AssetDetailFeature {
+    @ObservableState
+    struct State {
+        var linkedIssue: IssueUIModel?
+        var showIssuesListPicker: Bool = false
+    }
+    
+    enum Action {
+        case linkIssueTapped
+        case issueSelected(IssueUIModel)
+        case dismissIssuesPicker
+    }
+    
+    var body: some ReducerOf<Self> {
+        Reduce { state, action in
+            switch action {
+            case .linkIssueTapped:
+                state.showIssuesListPicker = true
+                return .none
+                
+            case let .issueSelected(issue):
+                state.linkedIssue = issue
+                state.showIssuesListPicker = false
+                return .none
+                
+            case .dismissIssuesPicker:
+                state.showIssuesListPicker = false
+                return .none
+            }
+        }
+    }
+}
+```
+
+### 4. Module Provider
+
+```swift
+// Issues.swift (Issues Module)
+public struct IssuesListPickerProvider {
+    private let onResult: (IssueUIModel) -> Void
+    
+    public init(onResult: @escaping (IssueUIModel) -> Void) {
+        self.onResult = onResult
+    }
+    
+    @MainActor
+    public func make() -> some View {
+        IssuesListPickerView(
+            store: Store(initialState: IssuesListPickerFeature.State()) {
+                IssuesListPickerFeature()
+            },
+            onIssueSelected: { issue in
+                onResult(issue)
+            }
+        )
+    }
+}
+```
+
 
 ## When to Use
 
 **Best for:**
 - Apps with independent feature areas
-- Apps where modal navigation is acceptable UX
 - Teams wanting maximum module decoupling
-- Projects with many parallel development streams
+- Projects where modal navigation is acceptable UX
 - Apps with clear feature boundaries
+- Teams prioritizing simplicity over navigation flexibility
 
 **Not ideal for:**
 - Apps requiring deep navigation hierarchies across modules
 - Apps where modal presentations feel out of place
 - Projects prioritizing seamless cross-module flows
-- Apps with complex navigation state management
-
-## Comparison with Other Branches
-
-| Aspect | modal_solution | centralized_vanilla_swift | centralized_solution |
-|--------|----------------|---------------------------|---------------------|
-| **Cross-Module Nav** | Sheet modals | Push navigation | Push navigation |
-| **Coordinator** | None | SwiftUI @Observable | TCA @Reducer |
-| **Module Coupling** | None | Medium (bus) | High (knows all) |
-| **Back Button** | Modal dismiss | Stack pop | Stack pop |
-| **Result Handling** | Callbacks | Async/await | Action matching |
-| **Scalability** | Excellent | Good | Moderate |
-| **UX Flexibility** | Limited | High | High |
-
-## Code Example
-
-### Internal Navigation (Push)
-
-```swift
-// Within Assets module - uses path-based navigation
-@Reducer
-public struct AssetsListFeature {
-    @ObservableState
-    public struct State {
-        @Presents var destination: Destination.State?
-    }
-    
-    @Reducer(state: .equatable)
-    public enum Destination {
-        case assetDetail(AssetDetailFeature)  // Internal push
-    }
-    
-    public var body: some ReducerOf<Self> {
-        Reduce { state, action in
-            case .assetTapped(let id):
-                // Push within module
-                state.destination = .assetDetail(
-                    AssetDetailFeature.State(assetId: id)
-                )
-                return .none
-        }
-        .ifLet(\.$destination, action: \.destination)
-    }
-}
-```
-
-### Cross-Module Navigation (Modal)
-
-```swift
-// Asset Detail navigating to Issues (different module) - modal
-@Reducer
-public struct AssetDetailFeature {
-    @ObservableState
-    public struct State {
-        @Presents var destination: Destination.State?
-    }
-    
-    @Reducer(state: .equatable)
-    public enum Destination {
-        case issuesListPicker(IssuesListPickerFeature)  // Cross-module modal
-    }
-    
-    public var body: some ReducerOf<Self> {
-        Reduce { state, action in
-            case .linkIssueTapped:
-                // Show as sheet
-                state.destination = .issuesListPicker(
-                    IssuesListPickerFeature.State()
-                )
-                return .none
-                
-            case .destination(.presented(.issuesListPicker(.issueSelected(let issue)))):
-                state.linkedIssue = issue
-                state.destination = nil  // Dismiss
-                return .none
-        }
-        .ifLet(\.$destination, action: \.destination)
-    }
-}
-```
-
-### View with Modal
-
-```swift
-struct AssetDetailView: View {
-    let store: StoreOf<AssetDetailFeature>
-    
-    var body: some View {
-        WithViewStore(store, observe: { $0 }) { viewStore in
-            VStack {
-                // ... content ...
-                Button("Link Issue") {
-                    viewStore.send(.linkIssueTapped)
-                }
-            }
-            .sheet(item: $store.scope(
-                state: \.destination?.issuesListPicker,
-                action: \.destination.issuesListPicker
-            )) { store in
-                NavigationStack {
-                    IssuesListPickerView(store: store)
-                }
-            }
-        }
-    }
-}
-```
-
-## Result Handling
-
-Since cross-module navigation is modal, results flow back through the destination state:
-
-```swift
-case .destination(.presented(.issuesListPicker(.issueSelected(let issue)))):
-    // Receive result from modal
-    state.linkedIssue = issue
-    state.destination = nil  // Dismiss modal
-    return .none
-```
-
-No async/await or result bus needed - standard TCA pattern.
-
-## Getting Started
-
-1. **Clone and checkout this branch**
-   ```bash
-   git clone <repo-url>
-   cd poc_ios_modularization
-   git checkout modal_solution
-   ```
-
-2. **Open workspace**
-   ```bash
-   open modularizediOSApp/ModularizediOSApp.xcworkspace
-   ```
-
-3. **Run the app** to see modal-based navigation
-
-4. **Notice:** Cross-module navigation presents as sheets, not pushes
-
-## Key Differences from Other Approaches
-
-### vs. centralized_vanilla_swift
-- ❌ No continuation manager (no memory leak concerns)
-- ❌ No result bus (uses standard TCA @Presents)
-- ❌ No navigation controllers
-- ✅ Simpler architecture
-- ❌ Modal-only cross-module navigation
-
-### vs. centralized_solution
-- ❌ No central coordinator reducer
-- ❌ No action bubbling to coordinator
-- ✅ Complete module independence
-- ❌ Cannot share navigation stack across modules
-
-## Additional Resources
-
-- [The Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture)
-- [TCA @Presents Documentation](https://pointfreeco.github.io/swift-composable-architecture/main/documentation/composablearchitecture/presents())
-- [Main README](../../tree/main) - Compare all approaches
-
-## License
-
-MIT License
+- Complex navigation state management
