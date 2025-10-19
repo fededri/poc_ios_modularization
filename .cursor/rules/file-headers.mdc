@@ -1,0 +1,63 @@
+---
+alwaysApply: true
+description: File header conventions for new files
+---
+
+# File Header Conventions
+
+When creating new Swift, Kotlin, or any source code files, always use the following header format:
+
+```swift
+//
+//  FileName.swift
+//  ModuleName
+//
+//  Created by Federico Torres on DD/MM/YY.
+//
+```
+
+## Rules
+
+1. **Author Name**: Always use "Federico Torres" as the creator
+2. **Never use**: "Created by Cursor" or "Created by AI"
+3. **Date Format**: Use DD/MM/YY format (e.g., 15/10/25)
+4. **Module Name**: Use the appropriate module name:
+   - For app target files: `modularizediOSApp`
+   - For Assets module: `Assets`
+   - For Issues module: `Issues`
+   - For CoreInterfaces: `CoreInterfaces`
+   - For shared Kotlin: `shared`
+
+## Examples
+
+### Swift File in App Target
+```swift
+//
+//  AssetsNavigationController.swift
+//  modularizediOSApp
+//
+//  Created by Federico Torres on 15/10/25.
+//
+```
+
+### Swift File in Module
+```swift
+//
+//  AssetDetailFeature.swift
+//  Assets
+//
+//  Created by Federico Torres on 15/10/25.
+//
+```
+
+### Kotlin File
+```kotlin
+//
+//  AssetRepository.kt
+//  shared
+//
+//  Created by Federico Torres on 15/10/25.
+//
+```
+
+Apply this format consistently across all new files in the project.

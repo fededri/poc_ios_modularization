@@ -13,10 +13,7 @@ import CoreInterfaces
 import SwiftUI
 
 public struct AssetsListProvider: ViewProviding {
-   // private let navigator: any Navigator
-    
     public init() {
-      //  self.navigator = navigator
     }
     
     @MainActor public func make() -> some View {
