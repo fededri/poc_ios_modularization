@@ -2,16 +2,6 @@
 
 This repository explores different architectural approaches for modularizing an iOS application that uses Kotlin Multiplatform (KMP) for shared business logic.
 
-## Problem Statement
-
-**How do you modularize an iOS app with KMP when Swift Package Manager modules cannot directly depend on KMP frameworks?**
-
-This POC demonstrates three different solutions to cross-module navigation while maintaining:
-- Swift Package Manager modules with protocol abstractions (no direct KMP dependency)
-- Proper back button behavior across module boundaries
-- Testability and SwiftUI Previews without KMP
-- TCA for state management
-
 ## Common Architecture Elements
 
 All branches share these core principles:
