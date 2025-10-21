@@ -35,11 +35,9 @@ Shared (KMP)          → Business Logic
 - Async/await navigation for result-returning screens
 - Type-erased `NavigationContinuationManager` prevents memory leaks
 - Navigation Result Bus eliminates circular dependencies
-- O(1) performance regardless of number of navigation types
 
 **Pros:**
-- No continuation leaks (lifecycle-aware)
-- Highly scalable (single manager handles all nav types)
+- Highly scalable (each module has its own navigation controller)
 - Standard Apple frameworks (no third-party nav libs)
 - Clean async/await API
 
